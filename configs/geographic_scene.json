@@ -1,0 +1,22 @@
+{
+  "name": "地理协同巡检 · 示例区域",
+  "world": {
+    "width": 1200000,
+    "height": 800000,
+    "georeference": {"center_latitude": 43.5, "center_longitude": 12.5, "meters_per_unit": 1}
+  },
+  "fixed_dt": 0.1,
+  "spawn_points": {"red": {"x": 200000, "y": 180000}, "blue": {"x": 570000, "y": 330000}},
+  "return_points": {"red": {"x": 200000, "y": 180000}, "blue": {"x": 570000, "y": 330000}},
+  "obstacles": [],
+  "units": [
+    {"id": "巡检车_R1", "team": "red", "type": "ground", "x": 200000, "y": 200000, "speed": 18,
+      "sensor_range": 3000, "waypoints": [{"x": 215000, "y": 210000}], "return_home": true},
+    {"id": "巡检无人机_R2", "team": "red", "type": "air", "x": 300000, "y": 240000, "speed": 65,
+      "sensor_range": 16000, "waypoints": [{"x": 420000, "y": 290000}, {"x": 500000, "y": 350000}], "return_home": true},
+    {"id": "巡检车_B1", "team": "blue", "type": "ground", "x": 570000, "y": 330000, "speed": 18,
+      "sensor_range": 3000, "waypoints": [{"x": 575000, "y": 340000}], "return_home": true},
+    {"id": "巡检无人机_B2", "team": "blue", "type": "air", "x": 830000, "y": 520000, "speed": 65,
+      "sensor_range": 16000, "waypoints": [{"x": 720000, "y": 460000}, {"x": 600000, "y": 420000}], "return_home": true}
+  ]
+}

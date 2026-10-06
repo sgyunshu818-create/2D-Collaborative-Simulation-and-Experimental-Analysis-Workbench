@@ -1,0 +1,47 @@
+{
+  "name": "stage3_virtual_tag_game",
+  "world": {"width": 900, "height": 600},
+  "fixed_dt": 0.016666666666666666,
+  "spawn_points": {
+    "red": {"x": 80, "y": 120},
+    "blue": {"x": 800, "y": 460}
+  },
+  "return_points": {
+    "red": {"x": 80, "y": 120},
+    "blue": {"x": 800, "y": 460}
+  },
+  "obstacles": [
+    {"id": "obstacle_01", "x": 300, "y": 180, "width": 100, "height": 80},
+    {"id": "obstacle_02", "x": 550, "y": 350, "width": 120, "height": 70}
+  ],
+  "rules": {
+    "sharing_enabled": true,
+    "tag_range": 90,
+    "tag_cooldown": 1.0,
+    "score_limit": 3,
+    "time_limit": 45,
+    "contact_ttl": 2
+  },
+  "units": [
+    {
+      "id": "red_ground_01", "team": "red", "type": "ground", "x": 80, "y": 150,
+      "speed": 45, "sensor_range": 65,
+      "waypoints": [{"x": 450, "y": 300}], "return_home": false
+    },
+    {
+      "id": "red_air_01", "team": "red", "type": "air", "x": 130, "y": 100,
+      "speed": 70, "sensor_range": 240,
+      "waypoints": [{"x": 450, "y": 300}], "return_home": false
+    },
+    {
+      "id": "blue_ground_01", "team": "blue", "type": "ground", "x": 800, "y": 450,
+      "speed": 45, "sensor_range": 65,
+      "waypoints": [{"x": 450, "y": 300}], "return_home": false
+    },
+    {
+      "id": "blue_air_01", "team": "blue", "type": "air", "x": 750, "y": 500,
+      "speed": 70, "sensor_range": 240,
+      "waypoints": [{"x": 450, "y": 300}], "return_home": false
+    }
+  ]
+}

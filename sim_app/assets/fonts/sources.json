@@ -1,0 +1,32 @@
+{
+  "downloaded": "2026-10-05",
+  "upstream": "https://github.com/adobe-fonts/source-han-serif",
+  "license": "SIL Open Font License 1.1",
+  "license_url": "https://raw.githubusercontent.com/adobe-fonts/source-han-serif/release/LICENSE.txt",
+  "files": [
+    {
+      "file": "SourceHanSerifCN-Bold.otf",
+      "url": "https://raw.githubusercontent.com/adobe-fonts/source-han-serif/release/SubsetOTF/CN/SourceHanSerifCN-Bold.otf",
+      "sha256": "4ee555ae58b3d22f6a95c2c494f2c36b7cccfc1d2224635f6461a03756f0e3c1",
+      "bytes": 12094680,
+      "names": {
+        "1": "Source Han Serif CN",
+        "2": "Bold",
+        "5": "Version 2.003;hotconv 1.1.1;makeotfexe 2.6.0",
+        "6": "SourceHanSerifCN-Bold"
+      }
+    },
+    {
+      "file": "SourceHanSerifCN-Regular.otf",
+      "url": "https://raw.githubusercontent.com/adobe-fonts/source-han-serif/release/SubsetOTF/CN/SourceHanSerifCN-Regular.otf",
+      "sha256": "3754ea669c530e2473354f8f6d9f79680a44d7e26ec7d00eeabee4a7e0753c5d",
+      "bytes": 11626108,
+      "names": {
+        "1": "Source Han Serif CN",
+        "2": "Regular",
+        "5": "Version 2.003;hotconv 1.1.1;makeotfexe 2.6.0",
+        "6": "SourceHanSerifCN-Regular"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "synthetic_marker_robustness_v1",
+  "image_size": 128,
+  "dev_seed": 171104,
+  "test_seed": 910421,
+  "dev_per_class": 16,
+  "test_per_class": 40,
+  "noise_sigmas": [25, 55],
+  "occlusion_fractions": [0.2, 0.4],
+  "baseline_thresholds": [100, 128, 150],
+  "polygon_epsilons": [0.015, 0.025, 0.035],
+  "circularity_thresholds": [0.72, 0.8],
+  "blur_kernels": [3, 5, 7]
+}

@@ -1,0 +1,291 @@
+{
+  "method": "Unchanged pixel classification at overlap midlines y=43/981, visually checked; source files not modified",
+  "central_column_measurements": {
+    "r0_c2": {
+      "north": {
+        "y": 43,
+        "x": 881,
+        "span": [
+          876,
+          885
+        ],
+        "classified_pixels": 66,
+        "alternate_spans": [
+          [
+            1155,
+            1166,
+            73
+          ],
+          [
+            876,
+            885,
+            66
+          ],
+          [
+            546,
+            555,
+            50
+          ]
+        ]
+      },
+      "south": {
+        "y": 981,
+        "x": 861,
+        "span": [
+          850,
+          872
+        ],
+        "classified_pixels": 191,
+        "alternate_spans": [
+          [
+            928,
+            938,
+            65
+          ],
+          [
+            262,
+            273,
+            54
+          ],
+          [
+            502,
+            506,
+            32
+          ]
+        ]
+      }
+    },
+    "r1_c2": {
+      "north": {
+        "y": 43,
+        "x": 994,
+        "span": [
+          985,
+          1004
+        ],
+        "classified_pixels": 171,
+        "alternate_spans": [
+          [
+            379,
+            396,
+            112
+          ],
+          [
+            352,
+            362,
+            85
+          ],
+          [
+            1466,
+            1469,
+            15
+          ]
+        ]
+      },
+      "south": {
+        "y": 981,
+        "x": 907,
+        "span": [
+          886,
+          930
+        ],
+        "classified_pixels": 359,
+        "alternate_spans": [
+          [
+            938,
+            947,
+            48
+          ],
+          [
+            106,
+            109,
+            17
+          ],
+          [
+            13,
+            15,
+            11
+          ]
+        ]
+      }
+    },
+    "r2_c2": {
+      "north": {
+        "y": 43,
+        "x": 826,
+        "span": [
+          818,
+          838
+        ],
+        "classified_pixels": 137,
+        "alternate_spans": [
+          [
+            1345,
+            1367,
+            90
+          ],
+          [
+            1392,
+            1404,
+            62
+          ],
+          [
+            1376,
+            1384,
+            34
+          ]
+        ]
+      },
+      "south": {
+        "y": 981,
+        "x": 549,
+        "span": [
+          538,
+          561
+        ],
+        "classified_pixels": 207,
+        "alternate_spans": [
+          [
+            189,
+            202,
+            43
+          ],
+          [
+            87,
+            91,
+            27
+          ],
+          [
+            570,
+            573,
+            24
+          ]
+        ]
+      }
+    },
+    "r3_c2": {
+      "north": {
+        "y": 43,
+        "x": 666,
+        "span": [
+          653,
+          679
+        ],
+        "classified_pixels": 197,
+        "alternate_spans": [
+          [
+            1436,
+            1457,
+            129
+          ],
+          [
+            1464,
+            1484,
+            92
+          ],
+          [
+            1417,
+            1425,
+            46
+          ]
+        ]
+      },
+      "south": {
+        "y": 981,
+        "x": 907,
+        "span": [
+          894,
+          920
+        ],
+        "classified_pixels": 233,
+        "alternate_spans": [
+          [
+            946,
+            952,
+            54
+          ],
+          [
+            567,
+            577,
+            49
+          ],
+          [
+            1243,
+            1244,
+            8
+          ]
+        ]
+      }
+    },
+    "r4_c2": {
+      "north": {
+        "y": 43,
+        "x": 1000,
+        "span": [
+          985,
+          1015
+        ],
+        "classified_pixels": 256,
+        "alternate_spans": [
+          [
+            1394,
+            1425,
+            173
+          ],
+          [
+            1433,
+            1444,
+            60
+          ],
+          [
+            1041,
+            1048,
+            57
+          ]
+        ]
+      },
+      "south": {
+        "y": 981,
+        "x": 675,
+        "span": [
+          660,
+          690
+        ],
+        "classified_pixels": 279,
+        "alternate_spans": [
+          [
+            709,
+            716,
+            43
+          ],
+          [
+            1426,
+            1436,
+            25
+          ],
+          [
+            930,
+            932,
+            14
+          ]
+        ]
+      }
+    }
+  },
+  "horizontal_offsets": {
+    "r2_c2": 0,
+    "r1_c2": -81,
+    "r0_c2": 52,
+    "r3_c2": -117,
+    "r4_c2": -210,
+    "r0_c1": 26,
+    "r0_c3": 26,
+    "r1_c1": -40,
+    "r1_c3": -40,
+    "r3_c1": -58,
+    "r3_c3": -58,
+    "r4_c1": -105,
+    "r4_c3": -105
+  },
+  "scope": "Main north-south river centers aligned at overlap mids. Tributaries, bank width and ridge continuity remain approximate fictional artwork."
+}

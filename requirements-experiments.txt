@@ -1,0 +1,4 @@
+# Independent synthetic marker experiment; the simulator still uses only pygame.
+numpy==2.2.6
+opencv-python-headless==4.12.0.88
+matplotlib==3.10.7

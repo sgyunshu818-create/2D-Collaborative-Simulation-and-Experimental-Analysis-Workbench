@@ -1,0 +1,179 @@
+{
+  "name": "Astra 山区河谷试验区",
+  "render_mode": "photographic",
+  "world_size": [
+    12000,
+    8000
+  ],
+  "raster_size": [
+    1536,
+    1024
+  ],
+  "native_source_size": [
+    1536,
+    1024
+  ],
+  "tile_size": 512,
+  "levels": [
+    {
+      "width": 1536,
+      "height": 1024,
+      "columns": 3,
+      "rows": 2
+    },
+    {
+      "width": 768,
+      "height": 512,
+      "columns": 2,
+      "rows": 1
+    },
+    {
+      "width": 384,
+      "height": 256,
+      "columns": 1,
+      "rows": 1
+    }
+  ],
+  "features": [],
+  "landmarks": {
+    "lake": {
+      "name": "青岚湖",
+      "position": [
+        6835.938,
+        1234.375
+      ]
+    },
+    "valley_town": {
+      "name": "河谷镇",
+      "position": [
+        4265.625,
+        3781.25
+      ]
+    },
+    "riverbank_town": {
+      "name": "东岸镇",
+      "position": [
+        8468.75,
+        3843.75
+      ]
+    },
+    "northern_village": {
+      "name": "北岸村",
+      "position": [
+        7492.188,
+        2257.813
+      ]
+    },
+    "central_bridge": {
+      "name": "河谷大桥",
+      "position": [
+        5773.438,
+        3109.375
+      ]
+    },
+    "southern_bridge": {
+      "name": "南谷公路桥",
+      "position": [
+        4804.688,
+        5304.688
+      ]
+    },
+    "airport": {
+      "name": "河谷机场",
+      "position": [
+        10062.5,
+        5640.625
+      ]
+    }
+  },
+  "feature_counts": {},
+  "source": {
+    "path": "sim_app/assets/terrain_astra/terrain_astra.png",
+    "bytes": 4239699,
+    "sha256": "5adfe363247ce6a1fc09c2f46b17e57663f65200d392da7afc8efc81a1715df7"
+  },
+  "tiles": [
+    {
+      "name": "0/0_0.png",
+      "size": [
+        512,
+        512
+      ],
+      "bytes": 615463,
+      "sha256": "3d50a0dee02c8d50687663ceb90027b781320e68d5bbe6420ab44bbe0523fcc0"
+    },
+    {
+      "name": "0/1_0.png",
+      "size": [
+        512,
+        512
+      ],
+      "bytes": 610077,
+      "sha256": "35faf9770219149d572461508628896e6062ffde80abe7e75d0f9c47915db9d6"
+    },
+    {
+      "name": "0/2_0.png",
+      "size": [
+        512,
+        512
+      ],
+      "bytes": 618365,
+      "sha256": "c2779daf6308d15f1bb3f369c817216ce2d71b64413adcf66c12ad976da6ccd0"
+    },
+    {
+      "name": "0/0_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "bytes": 613546,
+      "sha256": "7370d54868f764f613cc21de076c3c9e7b3386f544449a5acabc8f70c25671fb"
+    },
+    {
+      "name": "0/1_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "bytes": 613097,
+      "sha256": "6976c83f604a9c4b8bc75e6f13b5dbd6543e46e12650d3aa857b4b474cf826bf"
+    },
+    {
+      "name": "0/2_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "bytes": 605528,
+      "sha256": "b9bc26b9e74ba0ad84e80c69605249f1dbe4bed5818b35a48ee0ebbc7f879c6c"
+    },
+    {
+      "name": "1/0_0.png",
+      "size": [
+        512,
+        512
+      ],
+      "bytes": 639757,
+      "sha256": "ece8fd551d028d3fe7bf6a29ed0b4ade6896fde1b8a9cd284580d67277145538"
+    },
+    {
+      "name": "1/1_0.png",
+      "size": [
+        256,
+        512
+      ],
+      "bytes": 319035,
+      "sha256": "dcc636a5f249df63ab100c61adff043cec19f93b0d6db850436555377e0bf40c"
+    },
+    {
+      "name": "2/0_0.png",
+      "size": [
+        384,
+        256
+      ],
+      "bytes": 233386,
+      "sha256": "8a6c3bf99733ce8f791628a6039a83fcc972bd1c370f0572e4917edf934794e0"
+    }
+  ],
+  "processing": "Original artwork unchanged; native tile crops and downsampled mip levels only."
+}

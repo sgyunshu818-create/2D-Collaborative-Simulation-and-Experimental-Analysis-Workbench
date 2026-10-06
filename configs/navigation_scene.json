@@ -1,0 +1,35 @@
+{
+  "name": "stage2_navigation",
+  "world": {"width": 900, "height": 600},
+  "fixed_dt": 0.016666666666666666,
+  "spawn_points": {
+    "red": {"x": 80, "y": 120},
+    "blue": {"x": 800, "y": 460}
+  },
+  "return_points": {
+    "red": {"x": 80, "y": 120},
+    "blue": {"x": 800, "y": 460}
+  },
+  "obstacles": [
+    {"id": "obstacle_01", "x": 300, "y": 180, "width": 100, "height": 80},
+    {"id": "obstacle_02", "x": 550, "y": 350, "width": 120, "height": 70}
+  ],
+  "units": [
+    {
+      "id": "red_ground_01", "team": "red", "type": "ground", "x": 80, "y": 150,
+      "speed": 90, "waypoints": [{"x": 680, "y": 280}, {"x": 680, "y": 500}], "return_home": true
+    },
+    {
+      "id": "red_air_01", "team": "red", "type": "air", "x": 130, "y": 100,
+      "speed": 140, "waypoints": [{"x": 680, "y": 280}, {"x": 680, "y": 500}], "return_home": true
+    },
+    {
+      "id": "blue_ground_01", "team": "blue", "type": "ground", "x": 800, "y": 450,
+      "speed": 90, "waypoints": [{"x": 220, "y": 250}, {"x": 220, "y": 100}], "return_home": true
+    },
+    {
+      "id": "blue_air_01", "team": "blue", "type": "air", "x": 750, "y": 500,
+      "speed": 140, "waypoints": [{"x": 220, "y": 250}, {"x": 220, "y": 100}], "return_home": true
+    }
+  ]
+}

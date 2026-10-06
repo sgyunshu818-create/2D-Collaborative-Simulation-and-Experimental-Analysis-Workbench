@@ -1,0 +1,55 @@
+# Keep the repository focused on runnable source, assets, examples and tests.
+# New top-level directories are excluded until explicitly added here.
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/requirements.txt
+!/requirements-experiments.txt
+!/启动工作台.cmd
+!/启动工作台.ps1
+!/sim_app/
+!/marker_experiment/
+!/configs/
+!/tests/
+!/tools/
+
+# Local environments, generated files and editor caches.
+.venv/
+.experiment-venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.codegraph/
+.idea/
+.vscode/
+.chart-data-*/
+*.log
+*.tmp
+*.bak
+*.swp
+Thumbs.db
+.DS_Store
+.env
+.env.*
+
+# Reports, archived evidence and generated experiment/run results.
+/artifacts/
+/deliverables/
+/docs/
+/design-qa.md
+
+# Archived coursework packager for presentation/report/video deliverables.
+/tools/package_release.py
+
+# Personal scenes and snapshots of local run inputs.
+/configs/user_scenes/
+
+# Reference prompts and local generation paths are not runtime assets.
+/sim_app/assets/illustrated/asset_sources.json
