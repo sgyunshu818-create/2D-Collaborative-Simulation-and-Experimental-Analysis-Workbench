@@ -172,6 +172,13 @@ def scene_from_data(data: Any, path: str | Path = "<memory>") -> Scene:
             rule_values[key] = validator.number(
                 rule_data.get(key, getattr(defaults, key)), f"rules.{key}", positive=True
             )
+        # Zero means "no limit", so this one accepts zero but never a negative reach.
+        range_value = validator.number(
+            rule_data.get("sharing_range", defaults.sharing_range), "rules.sharing_range"
+        )
+        if range_value < 0:
+            validator.fail("rules.sharing_range", "must not be negative")
+        rule_values["sharing_range"] = range_value
         rules = GameRules(**rule_values)
 
     identifiers: set[str] = set()

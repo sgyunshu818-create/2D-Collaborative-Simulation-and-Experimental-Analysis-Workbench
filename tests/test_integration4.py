@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -135,8 +136,12 @@ class Stage4IntegrationTests(unittest.TestCase):
         self.assertTrue(self.app.save_if_needed())
 
     def test_deep_json_reports_configuration_error_without_recursion_traceback(self):
+        # The nesting budget of the stdlib scanner grew in newer CPython releases,
+        # so the depth is derived from this interpreter's own limit instead of a
+        # fixed number that only overflows on the version it was written for.
+        depth = max(2000, sys.getrecursionlimit() * 10)
         path = self.output / "deep.json"
-        path.write_text("[" * 2000 + "]" * 2000, encoding="utf-8")
+        path.write_text("[" * depth + "]" * depth, encoding="utf-8")
         with self.assertRaisesRegex(SceneConfigError, "nesting"):
             load_scene(path)
 

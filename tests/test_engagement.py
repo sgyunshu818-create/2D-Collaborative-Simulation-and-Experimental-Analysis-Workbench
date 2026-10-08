@@ -406,5 +406,83 @@ class RoundTests(unittest.TestCase):
             game_sim().set_sharing(1)
 
 
+def reach_config(**rules):
+    """A far-sighted red observer, a blind red listener and two blind blue units.
+
+    Only ``red_ground_01`` (x=100, sensor 300) sees anything: ``blue_ground_01``
+    at x=300. Every other sensor is 10 units long, so the listener at x=200 can
+    learn about that target only through a team broadcast.
+    """
+    config = game_config()
+    config["rules"].update(rules)
+    placement = ((100, 300), (200, 10), (300, 10), (800, 10))
+    for item, (x, sensor_range) in zip(config["units"], placement):
+        item.update(x=x, y=100, sensor_range=sensor_range)
+    return config
+
+
+class SharingReachTests(unittest.TestCase):
+    def refresh(self, config):
+        sim = game_sim(config)
+        events = refresh_contacts(sim.scene, sim.units, 1, True)
+        return sim, {unit.id: unit for unit in sim.units}, events
+
+    def test_zero_range_keeps_the_original_team_wide_broadcast(self):
+        _, units, events = self.refresh(reach_config())
+        listener = units["red_air_01"].contacts
+        self.assertEqual(list(units["red_ground_01"].contacts), ["blue_ground_01"])
+        self.assertEqual(list(listener), ["blue_ground_01"])
+        self.assertTrue(listener["blue_ground_01"].shared)
+        self.assertEqual(listener["blue_ground_01"].source_id, "red_ground_01")
+        # Receivers are visited in sorted identifier order, so the listener
+        # reports what it received before the observer reports what it saw.
+        self.assertEqual([(event.kind, event.unit_id) for event in events],
+                         [("info_shared", "red_air_01"),
+                          ("object_discovered", "red_ground_01")])
+
+    def test_a_positive_range_links_only_teammates_within_it(self):
+        # The two red units stand 100 apart, so the boundary itself still links.
+        _, units, _ = self.refresh(reach_config(sharing_range=100))
+        self.assertEqual(list(units["red_air_01"].contacts), ["blue_ground_01"])
+        # One unit short of that distance and the broadcast never arrives.
+        _, units, events = self.refresh(reach_config(sharing_range=99.5))
+        self.assertEqual(units["red_air_01"].contacts, {})
+        self.assertEqual([event.kind for event in events], ["object_discovered"])
+
+    def test_a_narrow_range_never_hides_a_units_own_sight(self):
+        _, units, _ = self.refresh(reach_config(sharing_range=1))
+        observer = units["red_ground_01"].contacts["blue_ground_01"]
+        self.assertFalse(observer.shared)
+        self.assertEqual(observer.source_id, "red_ground_01")
+
+    def test_the_range_does_not_leak_between_teams(self):
+        # Blue's two units are 500 apart and an opponent observation never
+        # crosses teams, so neither blue unit ends up with a contact.
+        _, units, _ = self.refresh(reach_config(sharing_range=1000))
+        self.assertEqual(units["blue_ground_01"].contacts, {})
+        self.assertEqual(units["blue_air_01"].contacts, {})
+
+    def test_sharing_range_accepts_zero_and_positive_values(self):
+        for value in (0, 0.0, 250, 12.5):
+            with self.subTest(value=value):
+                scene = scene_from_data(reach_config(sharing_range=value))
+                self.assertEqual(scene.rules.sharing_range, float(value))
+        self.assertEqual(scene_from_data(game_config()).rules.sharing_range, 0.0)
+
+    def test_sharing_range_rejects_negative_and_non_numeric_values(self):
+        for value in (-1, -0.5, True, None, "90", float("nan"), float("inf")):
+            with self.subTest(value=value):
+                config = reach_config(sharing_range=value)
+                with self.assertRaises(SceneConfigError) as caught:
+                    scene_from_data(config)
+                self.assertEqual(caught.exception.field, "rules.sharing_range")
+
+    def test_an_unknown_sharing_field_is_still_rejected(self):
+        config = reach_config()
+        config["rules"]["sharing_delay"] = 0.5
+        with self.assertRaisesRegex(SceneConfigError, "unknown virtual game rule"):
+            scene_from_data(config)
+
+
 if __name__ == "__main__":
     unittest.main()

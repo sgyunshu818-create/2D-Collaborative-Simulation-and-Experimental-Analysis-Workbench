@@ -79,6 +79,10 @@ class GameRules:
     score_limit: int = 3
     time_limit: float = 45.0
     contact_ttl: float = 2.0
+    # Zero keeps the original behaviour: any teammate shares with any other.
+    # A positive value links only teammates whose distance is within it, so team
+    # knowledge depends on where the units actually are.
+    sharing_range: float = 0.0
 
 
 @dataclass(frozen=True)

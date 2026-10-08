@@ -20,6 +20,19 @@ from tests.test_replay import game_config
 from tests.test_scene import valid_config
 
 
+def relay_config(**rules):
+    """One long-sighted red unit, one blind red unit and two blind blue units.
+
+    Only ``red_ground_01`` sees anything directly, so every other knowledge is
+    a team broadcast and the forwarding range decides whether it arrives.
+    """
+    config = game_config()
+    config["rules"].update(rules)
+    for unit, (x, sensor_range) in zip(config["units"], ((100, 300), (200, 10), (300, 10), (500, 10))):
+        unit.update(x=x, y=200, sensor_range=sensor_range)
+    return config
+
+
 class UpgradeRecordsTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -242,6 +255,72 @@ class UpgradeRecordsTests(unittest.TestCase):
         comparison = compare_runs(left, right)
         self.assertEqual(len(comparison["input_differences"]), 1)
         self.assertEqual(comparison["input_differences"][0]["path"], f"scene.units[{changed_id}].speed")
+
+    def played(self, config, elapsed=1.0):
+        simulation = Simulation(scene_from_config(config))
+        simulation.start()
+        simulation.advance(elapsed)
+        return simulation
+
+    def test_intel_metrics_are_unavailable_without_a_virtual_game(self):
+        _, payload = self.export(self.played(mission_config()), "plain")
+        summary = summarize_run(payload)
+        for metric in ("sharing_range", "direct_observations", "shared_reports", "lost_contacts",
+                       "virtual_tags", "intel_events", "shared_ratio", "first_contact_s",
+                       "contact_peak", "shared_peak"):
+            with self.subTest(metric=metric):
+                self.assertIsNone(summary[metric])
+        # A navigation scene stores no contact detail, so zero would be a guess.
+        self.assertTrue(all(point["value"] is None for point in summary["series"]["shared"]))
+
+    def test_intel_metrics_reconcile_with_the_recorded_events(self):
+        _, payload = self.export(self.played(relay_config()), "intel")
+        summary = summarize_run(payload)
+        events = payload["events"]
+        kinds = [event["kind"] for event in events]
+        self.assertEqual(summary["direct_observations"], kinds.count("object_discovered"))
+        self.assertEqual(summary["shared_reports"], kinds.count("info_shared"))
+        self.assertEqual(summary["lost_contacts"], kinds.count("contact_lost"))
+        self.assertEqual(summary["virtual_tags"], kinds.count("virtual_tag"))
+        self.assertEqual(summary["intel_events"],
+                         summary["direct_observations"] + summary["shared_reports"])
+        self.assertEqual(summary["shared_ratio"], summary["shared_reports"] / summary["intel_events"])
+        self.assertEqual(summary["first_contact_s"],
+                         min(event["time"] for event in events
+                             if event["kind"] in ("object_discovered", "info_shared")))
+        self.assertEqual(summary["sharing_range"], payload["scene"]["rules"]["sharing_range"])
+        for point in summary["timeline"]:
+            self.assertLessEqual(point["shared"], point["contact"])
+
+    def test_a_game_that_never_sees_anything_reports_no_first_contact(self):
+        silent = relay_config()
+        for unit in silent["units"]:
+            unit["sensor_range"] = 10
+        _, payload = self.export(self.played(silent), "silent")
+        summary = summarize_run(payload)
+        self.assertEqual(summary["intel_events"], 0)
+        # Nothing was gained, so a ratio and a first-contact time do not exist.
+        self.assertIsNone(summary["shared_ratio"])
+        self.assertIsNone(summary["first_contact_s"])
+        self.assertEqual(summary["contact_peak"], 0)
+
+    def test_the_forwarding_range_is_recorded_and_decides_the_shared_counts(self):
+        _, wide = self.export(self.played(relay_config()), "wide")
+        _, narrow = self.export(self.played(relay_config(sharing_range=50)), "narrow")
+        wide_summary, narrow_summary = summarize_run(wide), summarize_run(narrow)
+        self.assertEqual((wide_summary["sharing_range"], narrow_summary["sharing_range"]), (0.0, 50.0))
+        self.assertEqual(wide_summary["direct_observations"], narrow_summary["direct_observations"])
+        self.assertGreater(wide_summary["shared_reports"], narrow_summary["shared_reports"])
+        self.assertGreater(wide_summary["shared_peak"], narrow_summary["shared_peak"])
+        comparison = compare_runs(wide, narrow)
+        self.assertEqual(comparison["metric_differences"]["shared_reports"]["delta"],
+                         narrow_summary["shared_reports"] - wide_summary["shared_reports"])
+        self.assertEqual([difference["path"] for difference in comparison["input_differences"]],
+                         ["scene.rules.sharing_range"])
+        last = comparison["aligned_series"][-1]
+        self.assertEqual(last["left"]["shared"], wide_summary["shared_peak"])
+        self.assertEqual(last["right"]["shared"], narrow_summary["shared_peak"])
+        self.assertEqual(last["delta"]["shared"], last["right"]["shared"] - last["left"]["shared"])
 
     def test_metrics_and_comparison_csv_match_shared_metrics_and_have_source_paths(self):
         simulation = Simulation(scene_from_config(game_config()))

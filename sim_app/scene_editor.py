@@ -456,7 +456,7 @@ class SceneEditor(ttk.Frame):
         advanced = self.advanced_section.body
         self._field(advanced, 0, "固定步长（秒）", "fixed_dt", group="scene")
         for row, (label, key) in enumerate((("标记范围", "tag_range"), ("间隔（秒）", "tag_cooldown"),
-                                           ("有效期（秒）", "contact_ttl")), 1):
+                                           ("有效期（秒）", "contact_ttl"), ("转发距离（0=全队）", "sharing_range")), 1):
             self._field(advanced, row, label, f"rules.{key}", group="scene")
         self.geo_section = CollapsibleFrame(frame, "地理参考")
         self.geo_section.grid(row=5, column=0, columnspan=2, sticky='ew', pady=(8, 0))
@@ -512,8 +512,11 @@ class SceneEditor(ttk.Frame):
                                                                   f"{collection}.{team}.{axis}") for axis in ("x", "y")}
                 if self._scene_vars["rules_enabled"].get():
                     rules = {"sharing_enabled": bool(self._scene_vars["rules.sharing_enabled"].get())}
-                    for key in ("tag_range", "tag_cooldown", "score_limit", "time_limit", "contact_ttl"):
+                    for key in ("tag_range", "tag_cooldown", "score_limit", "time_limit", "contact_ttl",
+                                "sharing_range"):
                         rules[key] = self._number(self._scene_vars[f"rules.{key}"], f"rules.{key}", integer=key == "score_limit")
+                    if rules["sharing_range"] < 0:
+                        raise SceneConfigError("<form>", "rules.sharing_range", "请输入不小于 0 的数值；0 表示全队广播")
                     data["rules"] = rules
                 else:
                     data.pop("rules", None)

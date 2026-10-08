@@ -14,7 +14,7 @@
     "basic_scene.json": {
       "events": 48,
       "finish_reason": "missions_complete",
-      "sha256": "8ce946446b9816ab227d74d8c244b5602884815ac1c5c1fbeeb08c6890e4b01d",
+      "sha256": "064f11e4956f79c16a2c47f9d38a9365e354424639e8e51d7ed1686216079680",
       "sim_time": 18.016666667,
       "snapshots": 1083,
       "state": "FINISHED",
@@ -24,7 +24,7 @@
     "blocked_scene.json": {
       "events": 38,
       "finish_reason": "missions_complete",
-      "sha256": "33e9ba003c8e9e68642beb147e9e9fcede0a5696a33bfa2183f81fe4e5e3f39a",
+      "sha256": "ef2bebac2e9957790eebeec223751ef73651d51c6db29e034c00e034f0c5ef67",
       "sim_time": 8.933333333,
       "snapshots": 538,
       "state": "FINISHED",
@@ -64,7 +64,7 @@
     "interaction_scene.json": {
       "events": 26,
       "finish_reason": "score_limit",
-      "sha256": "8c4f4b6c3b38370f8db087a363962a5524a42e9c83d36bdde8e4b25eef81dc87",
+      "sha256": "7ae9fe492fb2983143cec1349ecbe7eb71b341e9c1cd310dd0fa3b3511bb1665",
       "sim_time": 7.033333333,
       "snapshots": 424,
       "state": "FINISHED",
@@ -94,7 +94,7 @@
     "obstacle_scene.json": {
       "events": 64,
       "finish_reason": "missions_complete",
-      "sha256": "1482aced241d10bc5ad83cabad39853a598549a044e516b535994fb77100fadf",
+      "sha256": "f6fabf27e925eda4de3000078284e8dffe1c61854042ac1e9c5dc0371e2de093",
       "sim_time": 17.25,
       "snapshots": 1037,
       "state": "FINISHED",
@@ -104,7 +104,7 @@
     "sharing_scene.json": {
       "events": 26,
       "finish_reason": "score_limit",
-      "sha256": "f4fdbb5077c3d27d7067e0b369e13732dd08d827672d0cea68d17dcad1bf5ef7",
+      "sha256": "71311bcb432532e12a5cfc8b032b22459ff65591d824e11f2a2285526a6ed1b9",
       "sim_time": 7.033333333,
       "snapshots": 424,
       "state": "FINISHED",

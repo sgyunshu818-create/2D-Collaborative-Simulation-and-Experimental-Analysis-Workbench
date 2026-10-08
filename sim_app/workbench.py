@@ -37,7 +37,14 @@ METRICS = {'duration_s': ('仿真时长', '秒'), 'unit_count': ('单位数', '�
            'completed_count': ('任务完成', '个'), 'blocked_count': ('任务受阻', '个'),
            'incomplete_count': ('任务未完成', '个'), 'unassigned_count': ('无任务单位', '个'),
            'distance_total': ('累计路程', '仿真单位'), 'event_count': ('事件数', '条'),
-           'snapshot_count': ('快照数', '帧')}
+           'snapshot_count': ('快照数', '帧'),
+           # Only a scene with virtual rules records these; elsewhere they show as
+           # unavailable rather than as zero.
+           'sharing_range': ('转发距离', '仿真单位'), 'direct_observations': ('直接发现', '条'),
+           'shared_reports': ('收到转发', '条'), 'lost_contacts': ('失去联系', '条'),
+           'virtual_tags': ('虚构标记', '次'), 'intel_events': ('情报总条数', '条'),
+           'shared_ratio': ('共享占比', '比例'), 'first_contact_s': ('首条情报', '秒'),
+           'contact_peak': ('记忆峰值', '条'), 'shared_peak': ('共享峰值', '条')}
 
 
 def open_path(path):
@@ -51,6 +58,9 @@ def open_path(path):
 
 
 def display_number(value):
+    # Derived metrics that the record cannot support stay unavailable, never 0.
+    if value is None:
+        return '—'
     return f'{value:.3f}' if isinstance(value, float) else str(value)
 
 
@@ -382,7 +392,7 @@ class Workbench:
         chart_page = ttk.Frame(self.detail_tabs, padding=8, style='Panel.TFrame')
         self.detail_tabs.add(chart_page, text='时间曲线')
         self.chart_metric = tk.StringVar(value='累计路程')
-        combo = ttk.Combobox(chart_page, textvariable=self.chart_metric, values=('累计路程', '虚构积分', '联系人数量'), state='readonly', width=18)
+        combo = ttk.Combobox(chart_page, textvariable=self.chart_metric, values=('累计路程', '虚构积分', '联系人数量', '共享情报'), state='readonly', width=18)
         combo.pack(anchor='w')
         combo.bind('<<ComboboxSelected>>', lambda *_: self.draw_chart())
         self.chart = tk.Canvas(chart_page, background=COLORS['surface'], highlightthickness=0)
@@ -599,7 +609,9 @@ class Workbench:
         if not self.chart_summaries:
             self.chart.create_text(25, 25, anchor='nw', text='选择运行或比较两条后查看曲线。', fill=COLORS['muted'])
             return
-        key, unit = {'累计路程': ('distance', '仿真单位'), '虚构积分': ('score', '虚构分'), '联系人数量': ('contact', '个')}.get(self.chart_metric.get(), ('distance', '仿真单位'))
+        key, unit = {'累计路程': ('distance', '仿真单位'), '虚构积分': ('score', '虚构分'),
+                     '联系人数量': ('contact', '个'), '共享情报': ('shared', '个')}.get(
+            self.chart_metric.get(), ('distance', '仿真单位'))
         width, height = max(380, self.chart.winfo_width()), max(260, self.chart.winfo_height())
         points = [summary['series'].get(key, []) for _, summary in self.chart_summaries]
         numeric = [(p['time'], p['value']) for series in points for p in series if isinstance(p.get('value'), (float, int))]

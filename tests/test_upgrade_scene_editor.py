@@ -231,12 +231,26 @@ class SceneEditorTests(unittest.TestCase):
         self.editor._scene_vars["rules_enabled"].set(True)
         self.editor._scene_vars["rules.score_limit"].set("5")
         self.editor._scene_vars["rules.time_limit"].set("30")
+        self.editor._scene_vars["rules.sharing_range"].set("150")
         self.assertTrue(self.editor.validate_document())
         data = self.editor.get_document().data
         self.assertEqual(data["world"]["width"], 1000)
         self.assertEqual(data["spawn_points"]["red"]["x"], 120)
         self.assertEqual(data["return_points"]["blue"]["y"], 480)
+        self.assertEqual(data["rules"]["sharing_range"], 150)
         self.assertEqual(self.editor.get_document().validate().rules.score_limit, 5)
+
+    def test_a_negative_forwarding_range_is_rejected_by_the_form(self):
+        self.editor._scene_vars["rules_enabled"].set(True)
+        before = self.editor.get_document().data
+        self.editor._scene_vars["rules.sharing_range"].set("-1")
+        self.assertFalse(self.editor.apply_changes())
+        self.assertIn("rules.sharing_range", str(self.error.call_args))
+        self.assertEqual(self.editor.get_document().data, before)
+        # Zero is the documented "team-wide broadcast" value and stays valid.
+        self.editor._scene_vars["rules.sharing_range"].set("0")
+        self.assertTrue(self.editor.apply_changes())
+        self.assertEqual(self.editor.get_document().data["rules"]["sharing_range"], 0)
 
     def test_unsaved_form_changes_are_protected_before_open_and_close(self):
         before = self.editor.get_document().data
