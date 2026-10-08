@@ -33,11 +33,23 @@ REASONS = {'missions_complete': '所有任务已停止推进（受阻单位仍�
            'score_limit': '达到虚构积分上限', 'time_limit': '达到仿真时限'}
 UNIT_RESULTS = {'completed': '已完成', 'blocked': '受阻', 'incomplete': '未完成',
                 'unassigned': '未分配任务', 'no_task': '未分配任务'}
+WINNERS = {'red': '红方', 'blue': '蓝方', 'draw': '平局'}
 METRICS = {'duration_s': ('仿真时长', '秒'), 'unit_count': ('单位数', '个'),
            'completed_count': ('任务完成', '个'), 'blocked_count': ('任务受阻', '个'),
            'incomplete_count': ('任务未完成', '个'), 'unassigned_count': ('无任务单位', '个'),
            'distance_total': ('累计路程', '仿真单位'), 'event_count': ('事件数', '条'),
-           'snapshot_count': ('快照数', '帧')}
+           'snapshot_count': ('快照数', '帧'),
+           # The scoreboard itself: how a round ended, next to why it ended.
+           'red_score': ('红方积分', '虚构分'), 'blue_score': ('蓝方积分', '虚构分'),
+           'score_margin': ('分差（红减蓝）', '虚构分'), 'winner': ('胜方', ''),
+           'score_limit': ('取胜积分上限', '虚构分'),
+           # Only a scene with virtual rules records these; elsewhere they show as
+           # unavailable rather than as zero.
+           'sharing_range': ('转发距离', '仿真单位'), 'direct_observations': ('直接发现', '条'),
+           'shared_reports': ('收到转发', '条'), 'lost_contacts': ('失去联系', '条'),
+           'virtual_tags': ('虚构标记', '次'), 'intel_events': ('情报总条数', '条'),
+           'shared_ratio': ('共享占比', '比例'), 'first_contact_s': ('首条情报', '秒'),
+           'contact_peak': ('记忆峰值', '条'), 'shared_peak': ('共享峰值', '条')}
 
 
 def open_path(path):
@@ -51,7 +63,24 @@ def open_path(path):
 
 
 def display_number(value):
+    # Derived metrics that the record cannot support stay unavailable, never 0.
+    if value is None:
+        return '—'
     return f'{value:.3f}' if isinstance(value, float) else str(value)
+
+
+def metric_text(key, value):
+    """Render one metric for the summary and the comparison panels."""
+    if key == 'winner':
+        return WINNERS.get(value, '—')
+    return display_number(value)
+
+
+# One mapping feeds both the curve dropdown and the plot, so the two cannot list
+# different metrics.
+CHART_METRICS = {'累计路程': ('distance', '仿真单位'), '虚构积分（双方合计）': ('score', '虚构分'),
+                 '红方积分': ('red_score', '虚构分'), '蓝方积分': ('blue_score', '虚构分'),
+                 '联系人数量': ('contact', '个'), '共享情报': ('shared', '个')}
 
 
 def local_time(value):
@@ -313,7 +342,10 @@ class Workbench:
             input_path.with_suffix('.origin.json').write_text(json.dumps(
                 {'saved_scene': str(Path(path).resolve()), 'source': str(origin) if origin else None},
                 ensure_ascii=False, indent=2), encoding='utf-8')
-            self._launch(['--scene', input_path, '--output-dir', self.runs_root], '场景运行')
+            arguments = ['--scene', input_path, '--output-dir', self.runs_root]
+            if self.editor.full_record_var.get():
+                arguments.append('--full-record')
+            self._launch(arguments, '场景运行')
         except Exception as exc:
             self._error(exc)
 
@@ -382,7 +414,7 @@ class Workbench:
         chart_page = ttk.Frame(self.detail_tabs, padding=8, style='Panel.TFrame')
         self.detail_tabs.add(chart_page, text='时间曲线')
         self.chart_metric = tk.StringVar(value='累计路程')
-        combo = ttk.Combobox(chart_page, textvariable=self.chart_metric, values=('累计路程', '虚构积分', '联系人数量'), state='readonly', width=18)
+        combo = ttk.Combobox(chart_page, textvariable=self.chart_metric, values=tuple(CHART_METRICS), state='readonly', width=18)
         combo.pack(anchor='w')
         combo.bind('<<ComboboxSelected>>', lambda *_: self.draw_chart())
         self.chart = tk.Canvas(chart_page, background=COLORS['surface'], highlightthickness=0)
@@ -501,7 +533,8 @@ class Workbench:
             lines = [f"场景：{payload['scene']['name']}",
                      f"记录状态：{STATUS.get(summary['state'], summary['state'])}",
                      f"时间：{local_time(entry.get('created_at'))}；{entry.get('time_label', '记录时间')}", '']
-            lines += [f'{title}：{display_number(summary.get(key, "—"))} {unit}' for key, (title, unit) in METRICS.items()]
+            lines += [f'{title}：{metric_text(key, summary.get(key))} {unit}'.rstrip()
+                      for key, (title, unit) in METRICS.items()]
             lines += [f"结束原因：{REASONS.get(summary['finish_reason'], summary['finish_reason'] or '尚未正常结束 / 未记录')}"]
             quality = summary['data_quality']
             lines += ['', '数据完整性：' + ('完整' if quality['status'] == 'complete' else '存在缺失或说明'),
@@ -571,7 +604,7 @@ class Workbench:
                 elif key == 'finish_reason':
                     title, left_value, right_value = '结束原因', REASONS.get(item['left'], item['left'] or '未结束'), REASONS.get(item['right'], item['right'] or '未结束')
                 else:
-                    left_value, right_value = display_number(item['left']), display_number(item['right'])
+                    left_value, right_value = metric_text(key, item['left']), metric_text(key, item['right'])
                 delta = display_number(item['delta']) if item.get('delta') is not None else '不适用'
                 lines.append(f"{title}: 左 {left_value} → 右 {right_value}；差值 {delta} {unit}")
             lines += ['', '两条曲线使用各自时间轴；短运行不会补齐到长运行。']
@@ -599,7 +632,7 @@ class Workbench:
         if not self.chart_summaries:
             self.chart.create_text(25, 25, anchor='nw', text='选择运行或比较两条后查看曲线。', fill=COLORS['muted'])
             return
-        key, unit = {'累计路程': ('distance', '仿真单位'), '虚构积分': ('score', '虚构分'), '联系人数量': ('contact', '个')}.get(self.chart_metric.get(), ('distance', '仿真单位'))
+        key, unit = CHART_METRICS.get(self.chart_metric.get(), ('distance', '仿真单位'))
         width, height = max(380, self.chart.winfo_width()), max(260, self.chart.winfo_height())
         points = [summary['series'].get(key, []) for _, summary in self.chart_summaries]
         numeric = [(p['time'], p['value']) for series in points for p in series if isinstance(p.get('value'), (float, int))]

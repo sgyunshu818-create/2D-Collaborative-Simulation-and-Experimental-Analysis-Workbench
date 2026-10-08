@@ -20,6 +20,43 @@ from tests.test_replay import game_config
 from tests.test_scene import valid_config
 
 
+def relay_config(**rules):
+    """One long-sighted red unit, one blind red unit and two blind blue units.
+
+    Only ``red_ground_01`` sees anything directly, so every other knowledge is
+    a team broadcast and the forwarding range decides whether it arrives.
+    """
+    config = game_config()
+    config["rules"].update(rules)
+    for unit, (x, sensor_range) in zip(config["units"], ((100, 300), (200, 10), (300, 10), (500, 10))):
+        unit.update(x=x, y=200, sensor_range=sensor_range)
+    return config
+
+
+def one_sided_config(leader):
+    """A game only ``leader`` can win: the other team is close but short-sighted.
+
+    Both sides stand 50 apart so the leader's 90 tag range covers them, while the
+    other team's 10-unit sensor never reaches back. The leader therefore scores
+    every tag and the other team never scores at all.
+    """
+    config = game_config()
+    for unit in config["units"]:
+        leading = unit["team"] == leader
+        unit.update(x=100 if leading else 150, y=200, sensor_range=1000 if leading else 10)
+    config["rules"].update(tag_range=90, tag_cooldown=0.125, score_limit=9, time_limit=2.0)
+    return config
+
+
+def matched_config():
+    """A game where both teams see and tag each other, so the round ends level."""
+    config = game_config()
+    for unit in config["units"]:
+        unit.update(x=100 if unit["team"] == "red" else 150, y=200, sensor_range=1000)
+    config["rules"].update(tag_range=90, tag_cooldown=0.125, score_limit=9, time_limit=2.0)
+    return config
+
+
 class UpgradeRecordsTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -128,11 +165,12 @@ class UpgradeRecordsTests(unittest.TestCase):
     def test_bounded_trail_seek_discards_future_and_fast_forward_applies_only_target(self):
         config = game_config()
         config["fixed_dt"] = 0.01
-        config["rules"].update(time_limit=8, score_limit=100000, tag_range=1)
+        # Long enough that the sampled recording still overflows the trail cap.
+        config["rules"].update(time_limit=13, score_limit=100000, tag_range=1)
         config["units"][0].update(speed=20, waypoints=[{"x": 800, "y": 200}])
         simulation = Simulation(scene_from_config(config))
         simulation.start()
-        simulation.advance(8)
+        simulation.advance(13)
         path, payload = self.export(simulation)
         replay = load_replay(path)
         replay.seek(replay.count - 1)
@@ -154,7 +192,7 @@ class UpgradeRecordsTests(unittest.TestCase):
         replay.reset()
         replay.start()
         with patch.object(replay, "_apply", wraps=replay._apply) as apply:
-            replay.advance(8)
+            replay.advance(20)
             self.assertEqual(apply.call_count, 1)
         self.assertEqual(replay.index, replay.count - 1)
         self.assertLessEqual(len(replay.units[0].trail), replay.TRAIL_LIMIT)
@@ -242,6 +280,155 @@ class UpgradeRecordsTests(unittest.TestCase):
         comparison = compare_runs(left, right)
         self.assertEqual(len(comparison["input_differences"]), 1)
         self.assertEqual(comparison["input_differences"][0]["path"], f"scene.units[{changed_id}].speed")
+
+    def played(self, config, elapsed=1.0):
+        simulation = Simulation(scene_from_config(config))
+        simulation.start()
+        simulation.advance(elapsed)
+        return simulation
+
+    def test_intel_metrics_are_unavailable_without_a_virtual_game(self):
+        _, payload = self.export(self.played(mission_config()), "plain")
+        summary = summarize_run(payload)
+        for metric in ("sharing_range", "direct_observations", "shared_reports", "lost_contacts",
+                       "virtual_tags", "intel_events", "shared_ratio", "first_contact_s",
+                       "contact_peak", "shared_peak"):
+            with self.subTest(metric=metric):
+                self.assertIsNone(summary[metric])
+        # A navigation scene stores no contact detail, so zero would be a guess.
+        self.assertTrue(all(point["value"] is None for point in summary["series"]["shared"]))
+
+    def test_intel_metrics_reconcile_with_the_recorded_events(self):
+        _, payload = self.export(self.played(relay_config()), "intel")
+        summary = summarize_run(payload)
+        events = payload["events"]
+        kinds = [event["kind"] for event in events]
+        self.assertEqual(summary["direct_observations"], kinds.count("object_discovered"))
+        self.assertEqual(summary["shared_reports"], kinds.count("info_shared"))
+        self.assertEqual(summary["lost_contacts"], kinds.count("contact_lost"))
+        self.assertEqual(summary["virtual_tags"], kinds.count("virtual_tag"))
+        self.assertEqual(summary["intel_events"],
+                         summary["direct_observations"] + summary["shared_reports"])
+        self.assertEqual(summary["shared_ratio"], summary["shared_reports"] / summary["intel_events"])
+        self.assertEqual(summary["first_contact_s"],
+                         min(event["time"] for event in events
+                             if event["kind"] in ("object_discovered", "info_shared")))
+        self.assertEqual(summary["sharing_range"], payload["scene"]["rules"]["sharing_range"])
+        for point in summary["timeline"]:
+            self.assertLessEqual(point["shared"], point["contact"])
+
+    def test_a_game_that_never_sees_anything_reports_no_first_contact(self):
+        silent = relay_config()
+        for unit in silent["units"]:
+            unit["sensor_range"] = 10
+        _, payload = self.export(self.played(silent), "silent")
+        summary = summarize_run(payload)
+        self.assertEqual(summary["intel_events"], 0)
+        # Nothing was gained, so a ratio and a first-contact time do not exist.
+        self.assertIsNone(summary["shared_ratio"])
+        self.assertIsNone(summary["first_contact_s"])
+        self.assertEqual(summary["contact_peak"], 0)
+
+    def test_the_forwarding_range_is_recorded_and_decides_the_shared_counts(self):
+        _, wide = self.export(self.played(relay_config()), "wide")
+        _, narrow = self.export(self.played(relay_config(sharing_range=50)), "narrow")
+        wide_summary, narrow_summary = summarize_run(wide), summarize_run(narrow)
+        self.assertEqual((wide_summary["sharing_range"], narrow_summary["sharing_range"]), (0.0, 50.0))
+        self.assertEqual(wide_summary["direct_observations"], narrow_summary["direct_observations"])
+        self.assertGreater(wide_summary["shared_reports"], narrow_summary["shared_reports"])
+        self.assertGreater(wide_summary["shared_peak"], narrow_summary["shared_peak"])
+        comparison = compare_runs(wide, narrow)
+        self.assertEqual(comparison["metric_differences"]["shared_reports"]["delta"],
+                         narrow_summary["shared_reports"] - wide_summary["shared_reports"])
+        self.assertEqual([difference["path"] for difference in comparison["input_differences"]],
+                         ["scene.rules.sharing_range"])
+        last = comparison["aligned_series"][-1]
+        self.assertEqual(last["left"]["shared"], wide_summary["shared_peak"])
+        self.assertEqual(last["right"]["shared"], narrow_summary["shared_peak"])
+        self.assertEqual(last["delta"]["shared"], last["right"]["shared"] - last["left"]["shared"])
+
+    def test_score_metrics_reconcile_with_the_recorded_tag_events(self):
+        _, payload = self.export(self.played(one_sided_config("red"), 2), "scored")
+        summary = summarize_run(payload)
+        self.assertEqual((summary["red_score"], summary["blue_score"], summary["score_margin"]),
+                         (4, 0, 4))
+        self.assertEqual((summary["winner"], summary["score_limit"]), ("red", 9))
+        # The scoreboard is not a separate tally: one point per adjudicated tag.
+        teams = {unit["id"]: unit["team"] for unit in payload["scene"]["units"]}
+        tagged = [teams[event["unit_id"]] for event in payload["events"] if event["kind"] == "virtual_tag"]
+        self.assertEqual(summary["red_score"], tagged.count("red"))
+        self.assertEqual(summary["blue_score"], tagged.count("blue"))
+        self.assertEqual(summary["red_score"] + summary["blue_score"], summary["virtual_tags"])
+        scores = payload["result"]["scores"]
+        self.assertEqual((summary["red_score"], summary["blue_score"]), (scores["red"], scores["blue"]))
+
+    def test_a_level_round_reports_a_draw_while_an_interrupted_one_reports_nothing(self):
+        _, level = self.export(self.played(matched_config(), 2), "level")
+        summary = summarize_run(level)
+        self.assertEqual((summary["red_score"], summary["blue_score"], summary["score_margin"]), (4, 4, 0))
+        self.assertEqual(summary["winner"], "draw")
+        simulation = Simulation(scene_from_config(one_sided_config("red")))
+        simulation.start()
+        simulation.advance(0.25)
+        simulation.pause()
+        _, interrupted = self.export(simulation, "interrupted")
+        summary = summarize_run(interrupted)
+        self.assertNotEqual(summary["state"], "FINISHED")
+        # The record itself holds an empty winner at interrupt: unavailable, and
+        # in particular not readable as a draw.
+        self.assertEqual(interrupted["result"]["winner"], "")
+        self.assertIsNone(summary["winner"])
+        self.assertIsNotNone(summary["red_score"])
+
+    def test_score_metrics_are_unavailable_without_a_virtual_game(self):
+        _, payload = self.export(self.played(mission_config()), "plain")
+        summary = summarize_run(payload)
+        for metric in ("red_score", "blue_score", "score_margin", "winner", "score_limit"):
+            with self.subTest(metric=metric):
+                self.assertIsNone(summary[metric])
+        # A navigation scene keeps no scoreboard, so its curve is missing, not 0.
+        self.assertTrue(all(point["value"] is None for point in summary["series"]["red_score"]))
+        self.assertTrue(all(point["value"] is None for point in summary["series"]["blue_score"]))
+
+    def test_opposite_outcomes_are_not_hidden_by_the_combined_score_curve(self):
+        _, red_leads = self.export(self.played(one_sided_config("red"), 2), "red_leads")
+        _, blue_leads = self.export(self.played(one_sided_config("blue"), 2), "blue_leads")
+        left, right = summarize_run(red_leads), summarize_run(blue_leads)
+        self.assertEqual((left["red_score"], left["blue_score"], left["winner"]), (4, 0, "red"))
+        self.assertEqual((right["red_score"], right["blue_score"], right["winner"]), (0, 4, "blue"))
+        self.assertEqual((left["score_margin"], right["score_margin"]), (4, -4))
+        # The combined curve is identical for both outcomes, which is exactly why
+        # the per-team curves have to exist.
+        self.assertEqual([point["value"] for point in left["series"]["score"]],
+                         [point["value"] for point in right["series"]["score"]])
+        self.assertNotEqual([point["value"] for point in left["series"]["red_score"]],
+                            [point["value"] for point in right["series"]["red_score"]])
+        comparison = compare_runs(red_leads, blue_leads)
+        last = comparison["aligned_series"][-1]
+        self.assertEqual(last["delta"]["score"], 0)
+        self.assertEqual(last["delta"]["red_score"], -4)
+        self.assertEqual(comparison["metric_differences"]["winner"]["delta"], None)
+        self.assertEqual(comparison["metric_differences"]["score_margin"]["delta"], -8)
+
+    def test_score_rows_reach_both_exports_with_their_definitions(self):
+        _, payload = self.export(self.played(one_sided_config("red"), 2), "scored")
+        summary = summarize_run(payload)
+        path = export_metrics(payload, self.directory / "metrics.csv")
+        with path.open(encoding="utf-8-sig", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        for metric in ("red_score", "blue_score", "score_margin", "winner", "score_limit"):
+            row = next(row for row in rows if row["section"] == "summary" and row["metric"] == metric)
+            self.assertEqual(row["value"], str(summary[metric]))
+            self.assertTrue(row["definition"])
+        for metric in ("red_score", "blue_score"):
+            series_rows = [row for row in rows if row["section"] == "series" and row["metric"] == metric]
+            self.assertEqual([float(row["value"]) for row in series_rows],
+                             [point["value"] for point in summary["series"][metric]])
+        path = export_comparison(payload, payload, self.directory / "comparison.csv")
+        with path.open(encoding="utf-8-sig", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        self.assertTrue(any(row["section"] == "summary" and row["metric"] == "score_margin" for row in rows))
+        self.assertTrue(any(row["section"] == "aligned_series" and row["metric"] == "red_score" for row in rows))
 
     def test_metrics_and_comparison_csv_match_shared_metrics_and_have_source_paths(self):
         simulation = Simulation(scene_from_config(game_config()))

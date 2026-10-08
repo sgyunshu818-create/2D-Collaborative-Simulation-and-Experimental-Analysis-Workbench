@@ -12,7 +12,7 @@ from sim_app.engagement import (
 from sim_app.models import BehaviorState, Contact, GameRules, Point, RunState, Team, Unit, UnitType
 from sim_app.navigation import segment_clear
 from sim_app.scene import SceneConfigError, load_scene, scene_from_data
-from sim_app.simulation import Simulation
+from sim_app.simulation import RECORD_STRIDE, Simulation
 from tests.test_scene import valid_config
 
 
@@ -342,11 +342,20 @@ class RoundTests(unittest.TestCase):
         counts = [snap["event_count"] for snap in sim.snapshots]
         self.assertEqual(counts, sorted(counts))
 
-    def test_snapshots_are_detached_and_record_every_game_logic_step(self):
+    def test_snapshots_are_detached_and_sample_the_game_logic_steps(self):
         sim = game_sim()
         sim.start()
-        sim.advance(0.5)
-        self.assertEqual([snap["step"] for snap in sim.snapshots], [0, 0, 1, 2, 3, 4])
+        sim.advance(2.0)
+        steps = sorted({snap["step"] for snap in sim.snapshots})
+        # Sampling never invents a step, never skips further than the stride,
+        # and never loses the step an event happened on. The recorded tail may
+        # trail the live step, but only within one stride.
+        self.assertTrue(all(later - earlier <= RECORD_STRIDE
+                            for earlier, later in zip(steps, steps[1:])))
+        self.assertLessEqual({event["step"] for event in sim.events}, set(steps))
+        self.assertGreater(len(steps), 1)
+        self.assertLess(len(steps), sim.step_count)
+        self.assertLessEqual(sim.step_count - steps[-1], RECORD_STRIDE - 1)
         external = sim.snapshot()
         external["scores"]["red"] = 200
         external["units"][0]["contacts"][0]["x"] = -200
@@ -354,7 +363,32 @@ class RoundTests(unittest.TestCase):
         self.assertNotEqual(external, sim.snapshot())
         self.assertNotEqual(sim.scores[Team.RED], 200)
         self.assertNotIn("fake", sim.units[0].tagged_targets)
-        self.assertEqual(sim.snapshots[-1], sim.snapshot())
+
+    def test_full_record_keeps_one_frame_per_logic_step(self):
+        sim = Simulation(scene_from_data(game_config()), record_every_step=True)
+        self.assertTrue(sim.record_every_step)
+        sim.start()
+        sim.advance(2.0)
+        steps = [snap["step"] for snap in sim.snapshots]
+        self.assertEqual(steps, sorted(steps))
+        self.assertEqual(steps[-1], sim.step_count)
+        self.assertEqual(steps[1:], list(range(0, sim.step_count + 1)))
+
+    def test_every_scoring_step_is_still_recorded_exactly(self):
+        """The score curve steps on the scoring step, not on the next sample."""
+        sim = game_sim()
+        sim.start()
+        sim.advance(5.0)
+        recorded = {snap["step"]: snap["scores"] for snap in sim.snapshots}
+        scoring = sorted({event["step"] for event in sim.events if event["kind"] == "virtual_tag"})
+        self.assertTrue(scoring)
+        previous = 0
+        for step in scoring:
+            self.assertIn(step, recorded)
+            total = sum(recorded[step].values())
+            self.assertGreater(total, previous)
+            previous = total
+        self.assertEqual(previous, sum(sim.scores.values()))
 
     def test_equal_fixed_steps_ignore_render_frame_partition(self):
         scene = scene_from_data(game_config())
@@ -404,6 +438,84 @@ class RoundTests(unittest.TestCase):
         self.assertFalse(sim.set_sharing(True))
         with self.assertRaisesRegex(ValueError, "boolean"):
             game_sim().set_sharing(1)
+
+
+def reach_config(**rules):
+    """A far-sighted red observer, a blind red listener and two blind blue units.
+
+    Only ``red_ground_01`` (x=100, sensor 300) sees anything: ``blue_ground_01``
+    at x=300. Every other sensor is 10 units long, so the listener at x=200 can
+    learn about that target only through a team broadcast.
+    """
+    config = game_config()
+    config["rules"].update(rules)
+    placement = ((100, 300), (200, 10), (300, 10), (800, 10))
+    for item, (x, sensor_range) in zip(config["units"], placement):
+        item.update(x=x, y=100, sensor_range=sensor_range)
+    return config
+
+
+class SharingReachTests(unittest.TestCase):
+    def refresh(self, config):
+        sim = game_sim(config)
+        events = refresh_contacts(sim.scene, sim.units, 1, True)
+        return sim, {unit.id: unit for unit in sim.units}, events
+
+    def test_zero_range_keeps_the_original_team_wide_broadcast(self):
+        _, units, events = self.refresh(reach_config())
+        listener = units["red_air_01"].contacts
+        self.assertEqual(list(units["red_ground_01"].contacts), ["blue_ground_01"])
+        self.assertEqual(list(listener), ["blue_ground_01"])
+        self.assertTrue(listener["blue_ground_01"].shared)
+        self.assertEqual(listener["blue_ground_01"].source_id, "red_ground_01")
+        # Receivers are visited in sorted identifier order, so the listener
+        # reports what it received before the observer reports what it saw.
+        self.assertEqual([(event.kind, event.unit_id) for event in events],
+                         [("info_shared", "red_air_01"),
+                          ("object_discovered", "red_ground_01")])
+
+    def test_a_positive_range_links_only_teammates_within_it(self):
+        # The two red units stand 100 apart, so the boundary itself still links.
+        _, units, _ = self.refresh(reach_config(sharing_range=100))
+        self.assertEqual(list(units["red_air_01"].contacts), ["blue_ground_01"])
+        # One unit short of that distance and the broadcast never arrives.
+        _, units, events = self.refresh(reach_config(sharing_range=99.5))
+        self.assertEqual(units["red_air_01"].contacts, {})
+        self.assertEqual([event.kind for event in events], ["object_discovered"])
+
+    def test_a_narrow_range_never_hides_a_units_own_sight(self):
+        _, units, _ = self.refresh(reach_config(sharing_range=1))
+        observer = units["red_ground_01"].contacts["blue_ground_01"]
+        self.assertFalse(observer.shared)
+        self.assertEqual(observer.source_id, "red_ground_01")
+
+    def test_the_range_does_not_leak_between_teams(self):
+        # Blue's two units are 500 apart and an opponent observation never
+        # crosses teams, so neither blue unit ends up with a contact.
+        _, units, _ = self.refresh(reach_config(sharing_range=1000))
+        self.assertEqual(units["blue_ground_01"].contacts, {})
+        self.assertEqual(units["blue_air_01"].contacts, {})
+
+    def test_sharing_range_accepts_zero_and_positive_values(self):
+        for value in (0, 0.0, 250, 12.5):
+            with self.subTest(value=value):
+                scene = scene_from_data(reach_config(sharing_range=value))
+                self.assertEqual(scene.rules.sharing_range, float(value))
+        self.assertEqual(scene_from_data(game_config()).rules.sharing_range, 0.0)
+
+    def test_sharing_range_rejects_negative_and_non_numeric_values(self):
+        for value in (-1, -0.5, True, None, "90", float("nan"), float("inf")):
+            with self.subTest(value=value):
+                config = reach_config(sharing_range=value)
+                with self.assertRaises(SceneConfigError) as caught:
+                    scene_from_data(config)
+                self.assertEqual(caught.exception.field, "rules.sharing_range")
+
+    def test_an_unknown_sharing_field_is_still_rejected(self):
+        config = reach_config()
+        config["rules"]["sharing_delay"] = 0.5
+        with self.assertRaisesRegex(SceneConfigError, "unknown virtual game rule"):
+            scene_from_data(config)
 
 
 if __name__ == "__main__":

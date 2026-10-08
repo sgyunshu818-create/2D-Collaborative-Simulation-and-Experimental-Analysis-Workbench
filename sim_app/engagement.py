@@ -3,6 +3,10 @@
 Only ``observe_opponents`` reads opponents' real positions for sensing. Tag
 selection consumes immutable contacts; ``adjudicate_tags`` independently checks
 the real geometry as a game referee. No weapons or damage are simulated.
+
+Team broadcasts are optional and, with a positive ``sharing_range``, limited to
+teammates within that distance of the sender. A zero range keeps the original
+team-wide broadcast.
 """
 
 from dataclasses import dataclass, field
@@ -85,6 +89,19 @@ def observe_opponents(scene: Scene, observer: Unit, units: Sequence[Unit], step:
     return observed
 
 
+def in_sharing_reach(rules: GameRules, sender: Unit, receiver: Unit) -> bool:
+    """Whether a team broadcast from ``sender`` reaches ``receiver``.
+
+    A non-positive range reproduces the original team-wide broadcast. A positive
+    range links only pairs within it, measured between the two units, so what a
+    team knows depends on where its members are.
+    """
+    if rules.sharing_range <= 0:
+        return True
+    distance = hypot(receiver.position.x - sender.position.x, receiver.position.y - sender.position.y)
+    return distance <= rules.sharing_range
+
+
 def refresh_contacts(scene: Scene, units: Sequence[Unit], step: int, sharing_enabled: bool) -> list[ContactEvent]:
     """Refresh direct observations, broadcast those observations once, then age.
 
@@ -111,6 +128,8 @@ def refresh_contacts(scene: Scene, units: Sequence[Unit], step: int, sharing_ena
         if sharing_enabled:
             for sender in ordered:
                 if sender.id == receiver.id or sender.team is not receiver.team:
+                    continue
+                if not in_sharing_reach(scene.rules, sender, receiver):
                     continue
                 for target_id, contact in direct[sender.id].items():
                     # Sorted senders provide a stable source when several see

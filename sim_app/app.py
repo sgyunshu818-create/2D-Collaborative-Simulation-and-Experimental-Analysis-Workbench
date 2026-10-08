@@ -28,8 +28,9 @@ def new_run_directory(base: Path) -> Path:
 class App:
     def __init__(self, simulation: Simulation, renderer,
                  scene_path: Path | None = None, output_dir: Path | None = None,
-                 capture_dir: Path | None = None):
+                 capture_dir: Path | None = None, full_record: bool = False):
         self.simulation = simulation
+        self.full_record = bool(full_record)
         self.renderer = renderer
         self.scene_path = scene_path
         self.output_dir = output_dir or RUNS_ROOT
@@ -46,6 +47,15 @@ class App:
         sync = getattr(self.renderer, 'sync_motion', None)
         if sync is not None:
             sync(self.simulation)
+
+    def scaled_frame(self, frame_dt: float) -> float:
+        """Wall time handed to the simulation, scaled by the shared time scale.
+
+        One control serves live runs and replay alike. Scaling wall time only
+        changes how long the run takes to watch: every logic step still advances
+        exactly one fixed step, so the saved record is unaffected.
+        """
+        return frame_dt * self.renderer.playback_speed
 
     def save_if_needed(self) -> bool:
         if getattr(self.simulation, "is_replay", False):
@@ -72,12 +82,19 @@ class App:
             map_notice = getattr(self.renderer, 'map_notice', '')
             if map_notice:
                 self.notice = map_notice
+            if action == "speed":
+                # Discard this frame's elapsed time, as a start/resume does, so the
+                # new scale never applies retroactively to time already measured.
+                self.notice = self.renderer.label(
+                    f"时间倍速 {self.renderer.playback_speed:g}x，实时与回放共用。",
+                    f"Time scale {self.renderer.playback_speed:g}x for live runs and replay.")
+                return True
             return False
         if hasattr(self.renderer, 'map_notice'):
             self.renderer.map_notice = ''
         if action == "help":
-            self.notice = self.renderer.label("滚轮锚定缩放；左拖平移。全球浏览真实底图；场景返回虚拟地图；定位需地理参考。展开/恢复侧栏。列表滚轮；回放点击时间轴/事件定位。",
-                "Scroll to zoom at cursor; left drag to pan. Global opens the real map; Scene shows virtual coordinates. Locate needs a geographic reference. Expand/restore panels. Replay timeline/events seek.")
+            self.notice = self.renderer.label("滚轮锚定缩放；左拖平移。全球浏览真实底图；场景返回虚拟地图；定位需地理参考。展开/恢复侧栏。T 切换倍速；列表滚轮；回放点击时间轴/事件定位。",
+                "Scroll to zoom at cursor; left drag to pan. Global opens the real map; Scene shows virtual coordinates. Locate needs a geographic reference. Expand/restore panels. T cycles time scale; list scrolls; replay timeline/events seek.")
             return False
         if action == "workbench":
             try:
@@ -119,7 +136,7 @@ class App:
             except SceneConfigError as exc:
                 self.notice = str(exc)
                 return False
-            self.simulation = Simulation(scene)
+            self.simulation = Simulation(scene, record_every_step=self.full_record)
             self.scene_path = path
             self.saved_for_run = self.finish_export_attempted = False
             self.renderer.selected_unit_id = None
@@ -252,6 +269,7 @@ class App:
                       pygame.K_s: "sharing", pygame.K_c: "scene", pygame.K_l: "replay",
                       pygame.K_g: "world_view", pygame.K_v: "scene_view",
                       pygame.K_f: "focus_scene", pygame.K_m: "map_maximize",
+                      pygame.K_t: "speed",
                       pygame.K_LEFT: "previous", pygame.K_RIGHT: "next"}.get(event.key)
             if event.key == pygame.K_h:
                 action = "help"
@@ -277,7 +295,7 @@ class App:
             if timing_changed:
                 frame_dt = 0.0
                 clock.tick()  # Clear time spent handling a start/resume/reset transition.
-            self.simulation.advance(frame_dt * self.renderer.playback_speed if getattr(self.simulation, "is_replay", False) else frame_dt)
+            self.simulation.advance(self.scaled_frame(frame_dt))
             if self.simulation.finished and not getattr(self.simulation, "is_replay", False) and not self.finish_export_attempted:
                 self.finish_export_attempted = True
                 saved = self.save_if_needed()
@@ -325,7 +343,7 @@ def run_headless(sim: Simulation, max_steps: int, output_dir: Path, scene_path: 
 
 def run(scene_path: Path, smoke_test: bool = False, headless: bool = False,
         max_steps: int = 7200, output_dir: Path | None = None,
-        capture_dir: Path | None = None) -> int:
+        capture_dir: Path | None = None, full_record: bool = False) -> int:
     """Load config before display initialization and return a process exit code."""
     try:
         scene = load_scene(scene_path)
@@ -336,7 +354,7 @@ def run(scene_path: Path, smoke_test: bool = False, headless: bool = False,
     if max_steps <= 0:
         print("ARGUMENT_ERROR: max_steps must be positive", file=sys.stderr)
         return 2
-    sim = Simulation(scene)
+    sim = Simulation(scene, record_every_step=full_record)
     if headless:
         try:
             return run_headless(sim, max_steps, output_dir or RUNS_ROOT, scene_path)
@@ -398,7 +416,7 @@ def run(scene_path: Path, smoke_test: bool = False, headless: bool = False,
                 return 1
             print(f"SMOKE_TEST_OK steps={sim.step_count} time={sim.sim_time:.6f}s state={sim.state.value} image={image} records={records}")
             return 0
-        return App(sim, renderer, scene_path, output_dir, capture_dir).run()
+        return App(sim, renderer, scene_path, output_dir, capture_dir, full_record).run()
     except (pygame.error, OSError, ValueError, RuntimeError) as exc:
         print(f"APP_ERROR: {exc}", file=sys.stderr)
         return 1

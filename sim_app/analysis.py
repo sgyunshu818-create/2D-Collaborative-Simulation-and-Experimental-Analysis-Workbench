@@ -15,12 +15,38 @@ DEFINITIONS = {
     "unassigned_count": {"unit": "个", "definition": "没有航点或返航任务且未受阻的单位，单列，不计任务完成。"},
     "distance_total": {"unit": "仿真单位", "definition": "末帧各单位 distance_travelled 之和；累计路径长度，不是首末点直线距离。"},
     "event_count": {"unit": "条", "definition": "记录 events 数量，含控制、导航和虚构规则事件。"},
-    "snapshot_count": {"unit": "帧", "definition": "原始 snapshots 数量；同时间控制帧单独保留。"},
-    "score": {"unit": "虚构积分", "definition": "各帧记录的 red/blue 积分；无规则的旧记录为不可用。"},
+    "snapshot_count": {"unit": "帧", "definition": "记录帧数。带规则的场景按固定间隔抽样，并在每次比分或事件变化处保留关键帧，因此小于逻辑步数；控制帧单独保留。"},
+    "score": {"unit": "虚构积分", "definition": "各帧红蓝双方积分之和，即本局累计产生的虚构标记总数；想知道是哪一方得分要看红方/蓝方积分。无规则的旧记录为不可用。"},
+    "red_score": {"unit": "虚构积分", "definition": "红方累计积分，汇总区取末帧值、曲线为该帧值；无规则的旧记录为不可用。"},
+    "blue_score": {"unit": "虚构积分", "definition": "蓝方累计积分，汇总区取末帧值、曲线为该帧值；无规则的旧记录为不可用。"},
+    "score_margin": {"unit": "虚构积分", "definition": "红方积分减蓝方积分，正值表示红方领先；任一方不可用时为不可用。"},
+    "winner": {"unit": "", "definition": "胜方，只在记录真正结束时给出；中断或未开始的记录为不可用，不会读成平局。"},
+    "score_limit": {"unit": "虚构积分", "definition": "场景 rules.score_limit 记录的取胜积分上限，属于实验条件，不是本局结果。"},
     "contact": {"unit": "条", "definition": "各帧所有单位保存的联系人总数，同一目标由不同单位记忆时分别计数；缺少联系人字段时为不可用。"},
+    "shared": {"unit": "条", "definition": "各帧各单位记忆中标注为队友转发的联系人数量，是 contact 的子集；缺少 shared 标记时为不可用。"},
+    "sharing_range": {"unit": "仿真单位", "definition": "场景 rules.sharing_range 记录的转发距离；0 表示全队广播，旧记录无此字段时不可用。"},
+    "direct_observations": {"unit": "条", "definition": "object_discovered 事件数，即各单位亲眼看到对手的次数。"},
+    "shared_reports": {"unit": "条", "definition": "info_shared 事件数，即队友转达到达的次数；到达与否由 rules.sharing_range 决定。"},
+    "lost_contacts": {"unit": "条", "definition": "contact_lost 事件数，含记忆过期与关闭共享时移除的转发记忆。"},
+    "virtual_tags": {"unit": "次", "definition": "virtual_tag 事件数，即裁判判定成立的虚构标记次数，不摧毁任何单位。"},
+    "intel_events": {"unit": "条", "definition": "direct_observations 与 shared_reports 之和，本局新增的对手情报总条数。"},
+    "shared_ratio": {"unit": "比例", "definition": "shared_reports / intel_events，取值 0~1；本局没有任何新增情报时为不可用。"},
+    "first_contact_s": {"unit": "秒", "definition": "首条 object_discovered 或 info_shared 的仿真时刻，即第一次获得对手情报的时间；全程无情报时为不可用。"},
+    "contact_peak": {"unit": "条", "definition": "各帧 contact 的最大值，同一时刻的团队记忆规模上限。"},
+    "shared_peak": {"unit": "条", "definition": "各帧 shared 的最大值，转发情报在某一时刻占用的记忆上限。"},
     "recorded_speed": {"unit": "仿真单位/秒", "definition": "与前一个不同时间快照的累计距离差除以时间差，为记录区间平均速度；首个时间组未知。"},
     "comparison": {"unit": "right - left", "definition": "差值为右侧减左侧。曲线保留各自时间轴；aligned_series 仅对齐双方真实存在的同时间末控制帧，不插值或补齐。"},
 }
+
+
+# The curves that the chart, the two exports and the aligned comparison all
+# walk. One list keeps those consumers from drifting apart.
+SERIES_KEYS = ("distance", "score", "red_score", "blue_score", "contact", "shared")
+
+
+def _series_definition(metric):
+    """The definition entry for one curve; the distance curve reads as a total."""
+    return DEFINITIONS["distance_total" if metric == "distance" else metric]
 
 
 def _number(value):
@@ -31,6 +57,16 @@ def _number(value):
     except (ValueError, OverflowError):
         return None
     return value if math.isfinite(value) and value >= 0 else None
+
+
+def _count(value):
+    """A recorded count, kept as an integer when the record holds one.
+
+    Scores and limits are whole numbers; reading 3 instead of 3.000 keeps the
+    summary and the exported curve as legible as the record itself.
+    """
+    number = _number(value)
+    return int(number) if number is not None and number.is_integer() else number
 
 
 def _rows(value):
@@ -54,8 +90,16 @@ def _sum_recorded(rows, field):
     return total, values
 
 
+def _shared_count(contacts):
+    """Forwarded entries in one unit's remembered contacts; None when unusable."""
+    if not isinstance(contacts, list) or any(not isinstance(row, dict) for row in contacts):
+        return None
+    return sum(row.get("shared") is True for row in contacts)
+
+
 def _series(snapshots):
-    series = {"time": [], "distance": [], "score": [], "contact": []}
+    series = {"time": [], "distance": [], "score": [], "red_score": [], "blue_score": [],
+              "contact": [], "shared": []}
     timeline = []
     for index, frame in enumerate(snapshots):
         if not isinstance(frame, dict) or _number(frame.get("time")) is None:
@@ -64,19 +108,108 @@ def _series(snapshots):
         units = [row for row in _rows(frame.get("units")) if isinstance(row, dict)]
         distance, distances = _sum_recorded(units, "distance_travelled")
         scores = frame.get("scores")
-        teams = ({team: _number(scores.get(team)) for team in ("red", "blue")}
+        teams = ({team: _count(scores.get(team)) for team in ("red", "blue")}
                  if isinstance(scores, dict) else {})
         score = _finite_sum(list(teams.values()))
         contacts = {row.get("id", str(n)): len(row["contacts"]) if isinstance(row.get("contacts"), list) else None
                     for n, row in enumerate(units)}
         contact = sum(contacts.values()) if contacts and all(v is not None for v in contacts.values()) else None
+        forwarded = {row.get("id", str(n)): _shared_count(row.get("contacts")) for n, row in enumerate(units)}
+        shared = (sum(forwarded.values())
+                  if forwarded and all(value is not None for value in forwarded.values()) else None)
         series["time"].append(dict(base))
         series["distance"].append({**base, "value": distance, "per_unit": distances})
         series["score"].append({**base, "value": score, "teams": teams})
+        # Per-team curves: the combined total above cannot show which side is
+        # ahead, so a 2:1 run and a 1:2 run would otherwise plot identically.
+        series["red_score"].append({**base, "value": teams.get("red")})
+        series["blue_score"].append({**base, "value": teams.get("blue")})
         series["contact"].append({**base, "value": contact, "per_unit": contacts})
-        timeline.append({**base, "distance": distance, "score": score, "scores": teams, "contact": contact,
-                         "state": frame.get("state"), "event_count": frame.get("event_count")})
+        series["shared"].append({**base, "value": shared, "per_unit": forwarded})
+        timeline.append({**base, "distance": distance, "score": score, "red_score": teams.get("red"),
+                         "blue_score": teams.get("blue"), "scores": teams, "contact": contact,
+                         "shared": shared, "state": frame.get("state"), "event_count": frame.get("event_count")})
     return series, timeline
+
+
+def _series_peak(points):
+    """Largest usable value in one series, or None when nothing is usable."""
+    values = [point["value"] for point in points if point.get("value") is not None]
+    return max(values) if values else None
+
+
+def _first_event_time(events, kinds):
+    """Earliest recorded time among ``kinds``; None when absent or unusable."""
+    times = [_number(event.get("time")) for event in events
+             if isinstance(event, dict) and event.get("kind") in kinds]
+    return min(times) if times and None not in times else None
+
+
+def _intel_summary(scene, events, series):
+    """Knowledge counts derived from recorded events and contact frames.
+
+    Every field is unavailable without a ``rules`` block: a plain navigation
+    scene has no observation game, so zero would be a false reading rather
+    than an honest one. The same holds for an older record whose rules block
+    predates ``sharing_range``.
+    """
+    fields = ("sharing_range", "direct_observations", "shared_reports", "lost_contacts",
+              "virtual_tags", "intel_events", "shared_ratio", "first_contact_s",
+              "contact_peak", "shared_peak")
+    rules = scene.get("rules")
+    if not isinstance(rules, dict):
+        return {field: None for field in fields}
+    kinds = [event.get("kind") for event in events if isinstance(event, dict)]
+    direct, forwarded = kinds.count("object_discovered"), kinds.count("info_shared")
+    gained = direct + forwarded
+    return {
+        # An absent field marks a record older than the rule itself, not a zero.
+        "sharing_range": _number(rules.get("sharing_range")),
+        "direct_observations": direct,
+        "shared_reports": forwarded,
+        "lost_contacts": kinds.count("contact_lost"),
+        "virtual_tags": kinds.count("virtual_tag"),
+        "intel_events": gained,
+        "shared_ratio": forwarded / gained if gained else None,
+        "first_contact_s": _first_event_time(events, ("object_discovered", "info_shared")),
+        "contact_peak": _series_peak(series["contact"]),
+        "shared_peak": _series_peak(series["shared"]),
+    }
+
+
+def _terminal_scores(result, series):
+    """Terminal red/blue scores, preferring the result frame over the curve tail."""
+    scores = result.get("scores")
+    if isinstance(scores, dict):
+        teams = {team: _count(scores.get(team)) for team in ("red", "blue")}
+        if teams["red"] is not None and teams["blue"] is not None:
+            return teams["red"], teams["blue"]
+    for red_point, blue_point in zip(reversed(series["red_score"]), reversed(series["blue_score"])):
+        if red_point["value"] is not None and blue_point["value"] is not None:
+            return red_point["value"], blue_point["value"]
+    return None, None
+
+
+def _score_summary(scene, result, series):
+    """Terminal scoreboard facts, unavailable at once without a ``rules`` block.
+
+    A plain navigation scene keeps no scoreboard, so zero would be a false
+    reading rather than an honest one - the rule the intel metrics already
+    follow.
+    """
+    fields = ("red_score", "blue_score", "score_margin", "winner", "score_limit")
+    rules = scene.get("rules")
+    if not isinstance(rules, dict):
+        return {field: None for field in fields}
+    red, blue = _terminal_scores(result, series)
+    recorded = result.get("winner")
+    # ``winner`` is written only when a round actually ends; an interrupted
+    # record leaves it empty, which must stay unavailable instead of reading as
+    # a draw.
+    winner = recorded if result.get("state") == "FINISHED" and recorded in ("red", "blue", "draw") else None
+    return {"red_score": red, "blue_score": blue,
+            "score_margin": red - blue if red is not None and blue is not None else None,
+            "winner": winner, "score_limit": _count(rules.get("score_limit"))}
 
 
 def _finish_reason(result, events):
@@ -150,6 +283,10 @@ def summarize_run(payload) -> dict:
     if distance is None:
         issues.append("累计距离不可用。")
     series, timeline = _series(snapshots)
+    intel = _intel_summary(scene, events, series)
+    score = _score_summary(scene, result, series)
+    if snapshots and isinstance(scene.get("rules"), dict) and intel["shared_peak"] is None:
+        issues.append("规则记录缺少联系人 shared 标记，共享情报曲线不可用。")
     metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
     missing_metadata = [field for field in ("run_id", "app_version", "source_sha256", "config_sha256", "dependencies", "environment")
                         if not metadata.get(field)]
@@ -162,6 +299,7 @@ def summarize_run(payload) -> dict:
             "completed_count": counts["completed"], "blocked_count": counts["blocked"],
             "incomplete_count": counts["incomplete"], "unassigned_count": counts["unassigned"],
             "distance_total": distance, "event_count": len(events), "snapshot_count": len(snapshots),
+            **intel, **score,
             "data_quality": {"status": "complete" if not issues else "partial", "issues": issues,
                              "missing_metadata": missing_metadata, "has_snapshots": bool(snapshots),
                              "run_complete": result.get("state") == "FINISHED"},
@@ -210,7 +348,10 @@ def _input_differences(left, right, path="scene"):
 def compare_runs(left, right) -> dict:
     lhs, rhs = summarize_run(left), summarize_run(right)
     metrics = ("duration_s", "unit_count", "completed_count", "blocked_count", "incomplete_count", "unassigned_count",
-               "distance_total", "event_count", "snapshot_count", "state", "finish_reason")
+               "distance_total", "event_count", "snapshot_count", "state", "finish_reason",
+               "red_score", "blue_score", "score_margin", "winner", "score_limit",
+               "sharing_range", "direct_observations", "shared_reports", "lost_contacts", "virtual_tags",
+               "intel_events", "shared_ratio", "first_contact_s", "contact_peak", "shared_peak")
     differences = {metric: {"left": lhs[metric], "right": rhs[metric],
                            "delta": rhs[metric] - lhs[metric] if isinstance(lhs[metric], (int, float)) and isinstance(rhs[metric], (int, float)) else None}
                    for metric in metrics}
@@ -220,7 +361,7 @@ def compare_runs(left, right) -> dict:
     for time in sorted(set(left_times) & set(right_times)):
         lpoint, rpoint = left_times[time], right_times[time]
         delta = {metric: rpoint[metric] - lpoint[metric] if lpoint[metric] is not None and rpoint[metric] is not None else None
-                 for metric in ("distance", "score", "contact")}
+                 for metric in SERIES_KEYS}
         aligned.append({"time": time, "left": dict(lpoint), "right": dict(rpoint), "delta": delta})
     return {"left": lhs, "right": rhs,
             "input_differences": _input_differences(lhs["input_scene"], rhs["input_scene"]),
@@ -240,15 +381,18 @@ def export_metrics(payload, path, *, source_path=None) -> Path:
         provenance = {"run_id": summary["metadata"].get("run_id", ""), "source_path": str(source_path or ""),
                       "config_sha256": summary["metadata"].get("config_sha256", "")}
         for metric in ("state", "finish_reason", "duration_s", "unit_count", "completed_count", "blocked_count", "incomplete_count",
-                       "unassigned_count", "distance_total", "event_count", "snapshot_count"):
+                       "unassigned_count", "distance_total", "event_count", "snapshot_count",
+                       "red_score", "blue_score", "score_margin", "winner", "score_limit",
+                       "sharing_range", "direct_observations", "shared_reports", "lost_contacts", "virtual_tags",
+                       "intel_events", "shared_ratio", "first_contact_s", "contact_peak", "shared_peak"):
             definition = DEFINITIONS.get(metric, {})
             writer.writerow({**provenance, "section": "summary", "metric": metric, "value": summary[metric], **definition})
         for row in summary["per_unit"]:
             for metric in ("status", "waypoints_total", "waypoints_reached", "distance_travelled", "reason"):
                 writer.writerow({**provenance, "section": "per_unit", "unit_id": row["id"], "metric": metric, "value": row[metric],
                                  "unit": "仿真单位" if metric == "distance_travelled" else ""})
-        for metric in ("distance", "score", "contact"):
-            definition = DEFINITIONS["distance_total" if metric == "distance" else metric]
+        for metric in SERIES_KEYS:
+            definition = _series_definition(metric)
             for point in summary["series"][metric]:
                 writer.writerow({**provenance, "section": "series", "metric": metric, "time_s": point["time"],
                                  "snapshot_index": point["snapshot_index"], "value": point["value"], **definition})
@@ -272,14 +416,14 @@ def export_comparison(left, right, path, *, left_source_path=None, right_source_
             writer.writerow({**provenance, "section": "input", "metric": difference["path"],
                              "left": repr(difference["left"]), "right": repr(difference["right"]), "definition": difference["kind"]})
         for side in ("left", "right"):
-            for metric in ("distance", "score", "contact"):
-                definition = DEFINITIONS["distance_total" if metric == "distance" else metric]
+            for metric in SERIES_KEYS:
+                definition = _series_definition(metric)
                 for point in comparison["series"][side][metric]:
                     writer.writerow({**provenance, "section": f"series_{side}", "metric": metric, "time_s": point["time"],
                                      side: point["value"], **definition})
         for point in comparison["aligned_series"]:
-            for metric in ("distance", "score", "contact"):
-                definition = DEFINITIONS["distance_total" if metric == "distance" else metric]
+            for metric in SERIES_KEYS:
+                definition = _series_definition(metric)
                 writer.writerow({**provenance, "section": "aligned_series", "metric": metric, "time_s": point["time"],
                                  "left": point["left"][metric], "right": point["right"][metric], "delta": point["delta"][metric], **definition})
     return path

@@ -78,6 +78,9 @@ class SceneEditor(ttk.Frame):
         self.atlas_region = tk.StringVar(value='中央河谷')
         self.grid_visible = tk.BooleanVar(value=False)
         self.template_var = tk.StringVar(value=next(iter(TEMPLATES)))
+        # Off by default: rules scenes sample the recording, which keeps a
+        # ~45 s demo near a few megabytes instead of tens of megabytes.
+        self.full_record_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar()
         self.coordinate_var = tk.StringVar(value="拖空白平移 · 拖单位编辑 · 滚轮缩放")
         self.zoom_var = tk.StringVar(value='100%')
@@ -138,6 +141,8 @@ class SceneEditor(ttk.Frame):
         toolbar.grid(row=0, column=0, sticky="ew")
         ttk.Button(toolbar, text="保存并运行", command=self.run_document,
                    style="Primary.TButton").pack(side="right", padx=(12, 0))
+        ttk.Checkbutton(toolbar, text="完整记录（60 Hz）", variable=self.full_record_var).pack(
+            side="right", padx=(12, 0))
         ttk.Label(toolbar, text="场景", style="Muted.TLabel").pack(side="left", padx=(0, 6))
         ttk.Combobox(toolbar, textvariable=self.template_var, values=list(TEMPLATES),
                      width=11, state="readonly").pack(side="left")
@@ -456,7 +461,7 @@ class SceneEditor(ttk.Frame):
         advanced = self.advanced_section.body
         self._field(advanced, 0, "固定步长（秒）", "fixed_dt", group="scene")
         for row, (label, key) in enumerate((("标记范围", "tag_range"), ("间隔（秒）", "tag_cooldown"),
-                                           ("有效期（秒）", "contact_ttl")), 1):
+                                           ("有效期（秒）", "contact_ttl"), ("转发距离（0=全队）", "sharing_range")), 1):
             self._field(advanced, row, label, f"rules.{key}", group="scene")
         self.geo_section = CollapsibleFrame(frame, "地理参考")
         self.geo_section.grid(row=5, column=0, columnspan=2, sticky='ew', pady=(8, 0))
@@ -512,8 +517,11 @@ class SceneEditor(ttk.Frame):
                                                                   f"{collection}.{team}.{axis}") for axis in ("x", "y")}
                 if self._scene_vars["rules_enabled"].get():
                     rules = {"sharing_enabled": bool(self._scene_vars["rules.sharing_enabled"].get())}
-                    for key in ("tag_range", "tag_cooldown", "score_limit", "time_limit", "contact_ttl"):
+                    for key in ("tag_range", "tag_cooldown", "score_limit", "time_limit", "contact_ttl",
+                                "sharing_range"):
                         rules[key] = self._number(self._scene_vars[f"rules.{key}"], f"rules.{key}", integer=key == "score_limit")
+                    if rules["sharing_range"] < 0:
+                        raise SceneConfigError("<form>", "rules.sharing_range", "请输入不小于 0 的数值；0 表示全队广播")
                     data["rules"] = rules
                 else:
                     data.pop("rules", None)

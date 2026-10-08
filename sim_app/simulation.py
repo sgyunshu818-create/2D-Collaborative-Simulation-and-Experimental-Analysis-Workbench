@@ -7,10 +7,30 @@ from .models import BehaviorState, Point, RunState, Scene, Team, Unit
 from .navigation import plan_path, point_clear, segment_clear
 from .recording import new_run_metadata, utc_timestamp
 
+# Rules scenes record one frame every this many logic steps, plus every frame
+# whose outcome changes. Three steps is 20 Hz at the default 1/60 s step, which
+# keeps the curves exact and replay smooth while cutting the record by about two
+# thirds. Replay never interpolates, so a longer stride reads as visible
+# stepping for the fastest units.
+RECORD_STRIDE = 3
+
+# Remembered contact positions are rounded to centimetres. They are redrawn,
+# never re-checked, so the loss is invisible while an exact float repr spends 17
+# characters per coordinate. Unit positions keep full precision on purpose: the
+# scene audit feeds them back to the obstacle-clearance test, and a centimetre
+# of rounding can land a recorded point exactly on a boundary it was inside.
+RECORD_DECIMALS = 2
+
+
+def _recorded(value: float) -> float:
+    """Round one recorded measurement that no geometric check reads back."""
+    return round(value, RECORD_DECIMALS)
+
 
 class Simulation:
-    def __init__(self, scene: Scene) -> None:
+    def __init__(self, scene: Scene, record_every_step: bool = False) -> None:
         self.scene = scene
+        self.record_every_step = bool(record_every_step)
         self.state = RunState.READY
         self.units = self._initial_units()
         self.step_count = 0
@@ -95,8 +115,8 @@ class Simulation:
                     sensor_range=unit.sensor_range,
                     contacts=[{
                         "target_id": contact.target_id,
-                        "x": contact.position.x,
-                        "y": contact.position.y,
+                        "x": _recorded(contact.position.x),
+                        "y": _recorded(contact.position.y),
                         "observed_step": contact.observed_step,
                         "source_id": contact.source_id,
                         "shared": contact.shared,
@@ -109,6 +129,32 @@ class Simulation:
 
     def _record_snapshot(self) -> None:
         snapshot = self.snapshot()
+        if not self.snapshots or snapshot != self.snapshots[-1]:
+            self.snapshots.append(snapshot)
+
+    @staticmethod
+    def _outcome_key(snapshot: dict) -> tuple:
+        """Frame-level scalars that must be dated exactly, whatever the stride."""
+        scores = snapshot.get("scores")
+        return (snapshot.get("state"),
+                tuple(sorted(scores.items())) if isinstance(scores, dict) else None,
+                snapshot.get("finish_reason"), snapshot.get("winner"),
+                snapshot.get("event_count"))
+
+    def _record_step_snapshot(self) -> None:
+        """Record one logic step of a rules scene under the reduced-rate policy.
+
+        ``RECORD_STRIDE`` samples the run, and any frame whose outcome scalars
+        moved since the last recorded frame is kept regardless, so every scoring
+        step and every event step survives. The recorded tail is therefore
+        allowed to lag the current step mid-run; ``export_run`` appends the live
+        frame, and control transitions still record unconditionally.
+        """
+        snapshot = self.snapshot()
+        if (not self.record_every_step and self.step_count % RECORD_STRIDE
+                and self.snapshots
+                and self._outcome_key(snapshot) == self._outcome_key(self.snapshots[-1])):
+            return
         if not self.snapshots or snapshot != self.snapshots[-1]:
             self.snapshots.append(snapshot)
 
@@ -407,7 +453,7 @@ class Simulation:
             self._update_units()
             if self.scene.rules is not None:
                 self._update_game()
-                self._record_snapshot()
+                self._record_step_snapshot()
             second = math.floor(self.sim_time + fixed_dt * 1e-9)
             if self.scene.rules is None and second > self._last_snapshot_second:
                 self._last_snapshot_second = second
