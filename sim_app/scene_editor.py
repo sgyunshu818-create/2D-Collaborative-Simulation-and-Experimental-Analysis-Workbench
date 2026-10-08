@@ -78,6 +78,9 @@ class SceneEditor(ttk.Frame):
         self.atlas_region = tk.StringVar(value='中央河谷')
         self.grid_visible = tk.BooleanVar(value=False)
         self.template_var = tk.StringVar(value=next(iter(TEMPLATES)))
+        # Off by default: rules scenes sample the recording, which keeps a
+        # ~45 s demo near a few megabytes instead of tens of megabytes.
+        self.full_record_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar()
         self.coordinate_var = tk.StringVar(value="拖空白平移 · 拖单位编辑 · 滚轮缩放")
         self.zoom_var = tk.StringVar(value='100%')
@@ -138,6 +141,8 @@ class SceneEditor(ttk.Frame):
         toolbar.grid(row=0, column=0, sticky="ew")
         ttk.Button(toolbar, text="保存并运行", command=self.run_document,
                    style="Primary.TButton").pack(side="right", padx=(12, 0))
+        ttk.Checkbutton(toolbar, text="完整记录（60 Hz）", variable=self.full_record_var).pack(
+            side="right", padx=(12, 0))
         ttk.Label(toolbar, text="场景", style="Muted.TLabel").pack(side="left", padx=(0, 6))
         ttk.Combobox(toolbar, textvariable=self.template_var, values=list(TEMPLATES),
                      width=11, state="readonly").pack(side="left")

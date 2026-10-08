@@ -12,7 +12,7 @@ from sim_app.engagement import (
 from sim_app.models import BehaviorState, Contact, GameRules, Point, RunState, Team, Unit, UnitType
 from sim_app.navigation import segment_clear
 from sim_app.scene import SceneConfigError, load_scene, scene_from_data
-from sim_app.simulation import Simulation
+from sim_app.simulation import RECORD_STRIDE, Simulation
 from tests.test_scene import valid_config
 
 
@@ -342,11 +342,20 @@ class RoundTests(unittest.TestCase):
         counts = [snap["event_count"] for snap in sim.snapshots]
         self.assertEqual(counts, sorted(counts))
 
-    def test_snapshots_are_detached_and_record_every_game_logic_step(self):
+    def test_snapshots_are_detached_and_sample_the_game_logic_steps(self):
         sim = game_sim()
         sim.start()
-        sim.advance(0.5)
-        self.assertEqual([snap["step"] for snap in sim.snapshots], [0, 0, 1, 2, 3, 4])
+        sim.advance(2.0)
+        steps = sorted({snap["step"] for snap in sim.snapshots})
+        # Sampling never invents a step, never skips further than the stride,
+        # and never loses the step an event happened on. The recorded tail may
+        # trail the live step, but only within one stride.
+        self.assertTrue(all(later - earlier <= RECORD_STRIDE
+                            for earlier, later in zip(steps, steps[1:])))
+        self.assertLessEqual({event["step"] for event in sim.events}, set(steps))
+        self.assertGreater(len(steps), 1)
+        self.assertLess(len(steps), sim.step_count)
+        self.assertLessEqual(sim.step_count - steps[-1], RECORD_STRIDE - 1)
         external = sim.snapshot()
         external["scores"]["red"] = 200
         external["units"][0]["contacts"][0]["x"] = -200
@@ -354,7 +363,32 @@ class RoundTests(unittest.TestCase):
         self.assertNotEqual(external, sim.snapshot())
         self.assertNotEqual(sim.scores[Team.RED], 200)
         self.assertNotIn("fake", sim.units[0].tagged_targets)
-        self.assertEqual(sim.snapshots[-1], sim.snapshot())
+
+    def test_full_record_keeps_one_frame_per_logic_step(self):
+        sim = Simulation(scene_from_data(game_config()), record_every_step=True)
+        self.assertTrue(sim.record_every_step)
+        sim.start()
+        sim.advance(2.0)
+        steps = [snap["step"] for snap in sim.snapshots]
+        self.assertEqual(steps, sorted(steps))
+        self.assertEqual(steps[-1], sim.step_count)
+        self.assertEqual(steps[1:], list(range(0, sim.step_count + 1)))
+
+    def test_every_scoring_step_is_still_recorded_exactly(self):
+        """The score curve steps on the scoring step, not on the next sample."""
+        sim = game_sim()
+        sim.start()
+        sim.advance(5.0)
+        recorded = {snap["step"]: snap["scores"] for snap in sim.snapshots}
+        scoring = sorted({event["step"] for event in sim.events if event["kind"] == "virtual_tag"})
+        self.assertTrue(scoring)
+        previous = 0
+        for step in scoring:
+            self.assertIn(step, recorded)
+            total = sum(recorded[step].values())
+            self.assertGreater(total, previous)
+            previous = total
+        self.assertEqual(previous, sum(sim.scores.values()))
 
     def test_equal_fixed_steps_ignore_render_frame_partition(self):
         scene = scene_from_data(game_config())

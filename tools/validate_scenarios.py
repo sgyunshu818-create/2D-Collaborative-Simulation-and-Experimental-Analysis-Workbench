@@ -192,16 +192,22 @@ def audit_record(sim: Simulation, paths: dict[str, Path]) -> dict:
         if not path.is_file() or path.stat().st_size == 0:
             raise ValueError(f"missing or empty {key} recording: {path}")
     payload = json.loads(paths["run"].read_text(encoding="utf-8"))
-    if payload["result"] != sim.snapshot() or payload["events"] != sim.events:
+    live = sim.snapshot()
+    if payload["result"] != live or payload["events"] != sim.events:
         raise ValueError("exported result/events disagree with the original simulation")
-    if payload["snapshots"] != sim.snapshots:
+    # A rules scene samples its recording, so the exported run may carry one
+    # extra frame: the live state appended when it is newer than the tail.
+    recorded = copy.deepcopy(sim.snapshots)
+    if not recorded or recorded[-1] != live:
+        recorded.append(live)
+    if payload["snapshots"] != recorded:
         raise ValueError("exported snapshots disagree with the original simulation")
     with paths["events"].open(encoding="utf-8-sig", newline="") as source:
         event_rows = list(csv.DictReader(source))
     with paths["states"].open(encoding="utf-8-sig", newline="") as source:
         state_rows = list(csv.DictReader(source))
     state_count = len(state_rows)
-    if len(event_rows) != len(sim.events) or state_count != sum(len(frame["units"]) for frame in sim.snapshots):
+    if len(event_rows) != len(sim.events) or state_count != sum(len(frame["units"]) for frame in recorded):
         raise ValueError("CSV recording row counts disagree with JSON facts")
     # Stage-four game records have the six-column event format. Details stores
     # all fields beyond the five basic columns, preserving nested details.
@@ -215,10 +221,17 @@ def audit_record(sim: Simulation, paths: dict[str, Path]) -> dict:
         if json.loads(saved["details"]) != extras:
             raise ValueError("event CSV details lost original extra fields")
     expected_rows = []
-    for frame in sim.snapshots:
+    for frame in recorded:
         for unit in frame["units"]:
+            # The state CSV carries counts where the snapshot carries rows; the
+            # nested contact and tagged-target lists stay in run.json only.
+            counted = {key: value for key, value in unit.items()
+                       if key not in ("contacts", "tagged_targets")}
+            counted["contact_count"] = len(unit["contacts"])
+            counted["shared_count"] = sum(row["shared"] is True for row in unit["contacts"])
+            counted["tagged_targets_count"] = len(unit["tagged_targets"])
             expected_rows.append({
-                "step": frame["step"], "time": frame["time"], "state": frame["state"], **unit,
+                "step": frame["step"], "time": frame["time"], "state": frame["state"], **counted,
                 "score_red": frame["scores"]["red"], "score_blue": frame["scores"]["blue"],
                 "sharing_enabled": frame["sharing_enabled"], "finish_reason": frame["finish_reason"],
                 "winner": frame["winner"], "event_count": frame["event_count"],
@@ -227,13 +240,12 @@ def audit_record(sim: Simulation, paths: dict[str, Path]) -> dict:
         if set(saved) != set(expected):
             raise ValueError(f"state CSV row {index} has missing/unknown columns")
         for key, value in expected.items():
-            matches = json.loads(saved[key]) == value if key in ("contacts", "tagged_targets") else saved[key] == str(value)
-            if not matches:
+            if saved[key] != str(value):
                 raise ValueError(f"state CSV field {key} disagrees with snapshot at row {index}")
     replay = load_replay(paths["run"])
-    if replay.count != len(sim.snapshots):
+    if replay.count != len(recorded):
         raise ValueError("replay frame count disagrees with the saved simulation")
-    for index, expected in enumerate(sim.snapshots):
+    for index, expected in enumerate(recorded):
         if not replay.seek(index) or replay.current_snapshot != expected:
             raise ValueError(f"replay frame {index} disagrees with its saved snapshot")
         if replay.source_state.value != expected["state"]:

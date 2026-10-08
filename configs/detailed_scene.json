@@ -27,6 +27,14 @@
     }
   },
   "obstacles": [],
+  "rules": {
+    "sharing_enabled": true,
+    "tag_range": 6000,
+    "tag_cooldown": 1,
+    "score_limit": 99,
+    "time_limit": 90,
+    "contact_ttl": 2
+  },
   "units": [
     {
       "id": "坦克_R1",

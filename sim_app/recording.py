@@ -148,8 +148,8 @@ def export_run(sim: Simulation, directory: str | Path,
             fields.insert(fields.index("type") + 1, "equipment")
         if payload["format_version"] == 3:
             fields += ["score_red", "score_blue", "sharing_enabled", "finish_reason", "winner",
-                       "event_count", "sensor_range", "contacts", "tagged_targets", "tag_count",
-                       "tag_flash_until_step"]
+                       "event_count", "sensor_range", "contact_count", "shared_count",
+                       "tagged_targets_count", "tag_count", "tag_flash_until_step"]
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for snapshot in snapshots:
@@ -161,8 +161,12 @@ def export_run(sim: Simulation, directory: str | Path,
                                sharing_enabled=snapshot["sharing_enabled"],
                                finish_reason=snapshot["finish_reason"], winner=snapshot["winner"],
                                event_count=snapshot.get("event_count", ""))
-                    for field in ("contacts", "tagged_targets"):
-                        row[field] = json.dumps(unit[field], ensure_ascii=False, allow_nan=False)
+                    # Counts, not the contact rows themselves: a spreadsheet cell
+                    # holding a nested JSON blob is unreadable, and the full
+                    # detail already lives in run.json next to this file.
+                    row["contact_count"] = len(unit["contacts"])
+                    row["shared_count"] = sum(contact["shared"] is True for contact in unit["contacts"])
+                    row["tagged_targets_count"] = len(unit["tagged_targets"])
                 writer.writerow(row)
     if hasattr(sim, "metadata"):
         sim.metadata = copy.deepcopy(payload["metadata"])

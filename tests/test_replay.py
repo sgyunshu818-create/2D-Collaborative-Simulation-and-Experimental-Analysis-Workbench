@@ -126,7 +126,7 @@ class ReplayTests(unittest.TestCase):
         self.assertEqual(replay.winner, payload["result"]["winner"])
         self.assertEqual(replay.events, simulation.events)
 
-    def test_v3_csv_keeps_extra_event_fields_and_contact_json(self):
+    def test_v3_csv_keeps_extra_event_fields_and_contact_counts(self):
         simulation, path, payload = self.save(game_config())
         with path.with_name("events.csv").open(encoding="utf-8-sig", newline="") as stream:
             events = list(csv.DictReader(stream))
@@ -140,8 +140,12 @@ class ReplayTests(unittest.TestCase):
         expected = [(frame, unit) for frame in payload["snapshots"] for unit in frame["units"]]
         self.assertEqual(len(states), len(expected))
         for row, (frame, unit) in zip(states, expected):
-            self.assertEqual(json.loads(row["contacts"]), unit["contacts"])
-            self.assertEqual(json.loads(row["tagged_targets"]), unit["tagged_targets"])
+            # The state CSV summarises what the snapshot holds as rows: the
+            # nested contact and tagged-target lists stay in run.json.
+            self.assertEqual(int(row["contact_count"]), len(unit["contacts"]))
+            self.assertEqual(int(row["shared_count"]),
+                             sum(contact["shared"] is True for contact in unit["contacts"]))
+            self.assertEqual(int(row["tagged_targets_count"]), len(unit["tagged_targets"]))
             self.assertEqual(int(row["score_red"]), frame["scores"]["red"])
             self.assertEqual(int(row["score_blue"]), frame["scores"]["blue"])
             self.assertEqual(row["finish_reason"], frame["finish_reason"])

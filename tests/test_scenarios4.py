@@ -78,9 +78,11 @@ class Stage4SceneTests(unittest.TestCase):
         self.assertEqual(off.scene, replace(on.scene, rules=replace(on.scene.rules, sharing_enabled=False)))
         on_metrics = knowledge_metrics(on.snapshots, on.events, on.scene.fixed_dt)
         off_metrics = knowledge_metrics(off.snapshots, off.events, off.scene.fixed_dt)
+        # The first three count events and pairs; the last counts recorded frames
+        # holding a freshly shared contact, so it follows the recording rate.
         self.assertEqual((on_metrics["shared_receiver_count"], on_metrics["unique_shared_receiver_target_pairs"],
                           on_metrics["logged_info_shared_transitions"], on_metrics["fresh_shared_contact_samples"]),
-                         (2, 4, 4, 712))
+                         (2, 4, 4, 253))
         self.assertEqual(off_metrics["shared_contact_samples"], 0)
         self.assertEqual(off_metrics["logged_info_shared_transitions"], 0)
         self.assertEqual(on_metrics["shared_sources_by_receiver"],
@@ -125,7 +127,8 @@ class Stage4ValidationTests(unittest.TestCase):
             self.assertEqual(report["sharing_comparison"]["status"], "PASS")
             self.assertTrue(all(report["sharing_comparison"]["checks"].values()))
             self.assertEqual(report["sharing_comparison"]["matched_logical_step"], 422)
-            self.assertEqual(sum(row["replay_checked_frames"] for row in report["records"]), 3530)
+            # Frames checked, not logic steps: rules scenes record a sample.
+            self.assertEqual(sum(row["replay_checked_frames"] for row in report["records"]), 1235)
             self.assertTrue(all(all(row["checks"].values()) for row in report["records"]))
             self.assertTrue((root / "validation.json").is_file())
             with (root / "summary.csv").open(encoding="utf-8-sig", newline="") as source:

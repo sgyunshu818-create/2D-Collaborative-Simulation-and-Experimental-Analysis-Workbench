@@ -14,9 +14,9 @@
     "basic_scene.json": {
       "events": 48,
       "finish_reason": "missions_complete",
-      "sha256": "064f11e4956f79c16a2c47f9d38a9365e354424639e8e51d7ed1686216079680",
+      "sha256": "62fdad252cbfe5b3f61fcf9177d5b2cf776210663470864334fe2187fd9a51de",
       "sim_time": 18.016666667,
-      "snapshots": 1083,
+      "snapshots": 378,
       "state": "FINISHED",
       "steps": 1081,
       "units": 4
@@ -24,9 +24,9 @@
     "blocked_scene.json": {
       "events": 38,
       "finish_reason": "missions_complete",
-      "sha256": "ef2bebac2e9957790eebeec223751ef73651d51c6db29e034c00e034f0c5ef67",
+      "sha256": "f21f924920183f2848951577dbc2153ac40cc4a37a3af479c001747ae75c1c43",
       "sim_time": 8.933333333,
-      "snapshots": 538,
+      "snapshots": 191,
       "state": "FINISHED",
       "steps": 536,
       "units": 4
@@ -42,11 +42,11 @@
       "units": 4
     },
     "detailed_scene.json": {
-      "events": 118,
-      "finish_reason": "",
-      "sha256": "9421a8776690a4e7da44e1812f1c47be3e9fcdf5d94e00467ebe3e9980c9e982",
+      "events": 253,
+      "finish_reason": "missions_complete",
+      "sha256": "4755e21a746d0edd379dc85948600c0fc77ecf740201af2a39c76e7426ffb98c",
       "sim_time": 44.933333333,
-      "snapshots": 47,
+      "snapshots": 959,
       "state": "FINISHED",
       "steps": 2696,
       "units": 8
@@ -64,9 +64,9 @@
     "interaction_scene.json": {
       "events": 26,
       "finish_reason": "score_limit",
-      "sha256": "7ae9fe492fb2983143cec1349ecbe7eb71b341e9c1cd310dd0fa3b3511bb1665",
+      "sha256": "ef98c12e502f66db12532e6d9a33ff233ac95a0819d3e0d4ec1c02a6aefefaf6",
       "sim_time": 7.033333333,
-      "snapshots": 424,
+      "snapshots": 147,
       "state": "FINISHED",
       "steps": 422,
       "units": 4
@@ -94,9 +94,9 @@
     "obstacle_scene.json": {
       "events": 64,
       "finish_reason": "missions_complete",
-      "sha256": "f6fabf27e925eda4de3000078284e8dffe1c61854042ac1e9c5dc0371e2de093",
+      "sha256": "8892536d6c2d89058b4877aa78bbc510e687bf97a6497d456f93ae0727646f91",
       "sim_time": 17.25,
-      "snapshots": 1037,
+      "snapshots": 363,
       "state": "FINISHED",
       "steps": 1035,
       "units": 4
@@ -104,9 +104,9 @@
     "sharing_scene.json": {
       "events": 26,
       "finish_reason": "score_limit",
-      "sha256": "71311bcb432532e12a5cfc8b032b22459ff65591d824e11f2a2285526a6ed1b9",
+      "sha256": "e5e1dc512cd8d82e1d21da72173a8fb89b1cd5936d9df960198aa22b15bf639b",
       "sim_time": 7.033333333,
-      "snapshots": 424,
+      "snapshots": 147,
       "state": "FINISHED",
       "steps": 422,
       "units": 4

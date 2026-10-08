@@ -28,8 +28,9 @@ def new_run_directory(base: Path) -> Path:
 class App:
     def __init__(self, simulation: Simulation, renderer,
                  scene_path: Path | None = None, output_dir: Path | None = None,
-                 capture_dir: Path | None = None):
+                 capture_dir: Path | None = None, full_record: bool = False):
         self.simulation = simulation
+        self.full_record = bool(full_record)
         self.renderer = renderer
         self.scene_path = scene_path
         self.output_dir = output_dir or RUNS_ROOT
@@ -135,7 +136,7 @@ class App:
             except SceneConfigError as exc:
                 self.notice = str(exc)
                 return False
-            self.simulation = Simulation(scene)
+            self.simulation = Simulation(scene, record_every_step=self.full_record)
             self.scene_path = path
             self.saved_for_run = self.finish_export_attempted = False
             self.renderer.selected_unit_id = None
@@ -342,7 +343,7 @@ def run_headless(sim: Simulation, max_steps: int, output_dir: Path, scene_path: 
 
 def run(scene_path: Path, smoke_test: bool = False, headless: bool = False,
         max_steps: int = 7200, output_dir: Path | None = None,
-        capture_dir: Path | None = None) -> int:
+        capture_dir: Path | None = None, full_record: bool = False) -> int:
     """Load config before display initialization and return a process exit code."""
     try:
         scene = load_scene(scene_path)
@@ -353,7 +354,7 @@ def run(scene_path: Path, smoke_test: bool = False, headless: bool = False,
     if max_steps <= 0:
         print("ARGUMENT_ERROR: max_steps must be positive", file=sys.stderr)
         return 2
-    sim = Simulation(scene)
+    sim = Simulation(scene, record_every_step=full_record)
     if headless:
         try:
             return run_headless(sim, max_steps, output_dir or RUNS_ROOT, scene_path)
@@ -415,7 +416,7 @@ def run(scene_path: Path, smoke_test: bool = False, headless: bool = False,
                 return 1
             print(f"SMOKE_TEST_OK steps={sim.step_count} time={sim.sim_time:.6f}s state={sim.state.value} image={image} records={records}")
             return 0
-        return App(sim, renderer, scene_path, output_dir, capture_dir).run()
+        return App(sim, renderer, scene_path, output_dir, capture_dir, full_record).run()
     except (pygame.error, OSError, ValueError, RuntimeError) as exc:
         print(f"APP_ERROR: {exc}", file=sys.stderr)
         return 1
