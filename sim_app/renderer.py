@@ -462,7 +462,7 @@ class Renderer:
         for button in self.map_buttons:
             title = self.label(button.zh, button.en)
             if button.action == "speed":
-                title = f"{self.playback_speed:g}x" if replay else "1x"
+                title = f"{self.playback_speed:g}x"
             if button.action == "trails":
                 title = self.label("轨迹开" if self.show_trails else "轨迹关", "Trails on" if self.show_trails else "Trails off")
             if button.action == "labels":

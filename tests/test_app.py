@@ -37,6 +37,9 @@ class AppInputTests(unittest.TestCase):
     def setUp(self):
         self.simulation = Simulation(self.scene)
         self.app = App(self.simulation, self.renderer)
+        # The renderer is shared across these tests, and the time scale is run
+        # state, so a scale left by one test would otherwise change the next one.
+        self.renderer.playback_speed = 1.0
         # Input tests exercise controls; export is covered with temporary paths.
         saver = patch.object(self.app, "save_if_needed", return_value=True)
         saver.start()
@@ -113,6 +116,38 @@ class AppInputTests(unittest.TestCase):
         self.key(pygame.K_RETURN)
         self.assertFalse(self.app.handle_event(pygame.event.Event(pygame.QUIT)))
         self.assertFalse(self.app.active)
+
+    def test_one_time_scale_serves_live_runs_and_replay(self):
+        # Live runs used to be pinned at 1x; the scale now applies to both modes.
+        self.assertFalse(getattr(self.simulation, "is_replay", False))
+        self.assertEqual(self.app.scaled_frame(0.5), 0.5)
+
+        # Cycling asks to discard this frame's elapsed time, so a new scale never
+        # applies to wall time that was already measured.
+        self.assertTrue(self.key(pygame.K_t))
+        self.assertEqual(self.renderer.playback_speed, 2.0)
+        self.assertEqual(self.app.scaled_frame(0.5), 1.0)
+
+        control = next(control for control in self.renderer.map_buttons if control.action == "speed")
+        self.assertEqual(self.renderer.extra_action_at(control.rect.center, self.simulation), "speed")
+        self.assertTrue(self.app.dispatch("speed"))
+        self.assertEqual(self.renderer.playback_speed, 4.0)
+
+        for _ in range(2):
+            self.key(pygame.K_t)
+        self.assertEqual(self.renderer.playback_speed, 1.0)
+
+    def test_changing_the_time_scale_keeps_recorded_progress(self):
+        # Scaling changes how long a run takes to watch, never what it records.
+        self.key(pygame.K_RETURN)
+        self.assertEqual(self.simulation.advance(self.scene.fixed_dt * 5), 5)
+        self.app.dispatch("speed")
+        self.app.dispatch("speed")
+        self.assertEqual(self.renderer.playback_speed, 4.0)
+        self.assertEqual(self.simulation.step_count, 5)
+        # Four times the wall time buys four times the steps, all of the same fixed dt.
+        self.assertEqual(self.simulation.advance(self.app.scaled_frame(self.scene.fixed_dt * 3)), 12)
+        self.assertEqual(self.simulation.step_count, 17)
 
 
 if __name__ == "__main__":

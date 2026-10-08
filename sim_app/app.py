@@ -47,6 +47,15 @@ class App:
         if sync is not None:
             sync(self.simulation)
 
+    def scaled_frame(self, frame_dt: float) -> float:
+        """Wall time handed to the simulation, scaled by the shared time scale.
+
+        One control serves live runs and replay alike. Scaling wall time only
+        changes how long the run takes to watch: every logic step still advances
+        exactly one fixed step, so the saved record is unaffected.
+        """
+        return frame_dt * self.renderer.playback_speed
+
     def save_if_needed(self) -> bool:
         if getattr(self.simulation, "is_replay", False):
             return True
@@ -72,12 +81,19 @@ class App:
             map_notice = getattr(self.renderer, 'map_notice', '')
             if map_notice:
                 self.notice = map_notice
+            if action == "speed":
+                # Discard this frame's elapsed time, as a start/resume does, so the
+                # new scale never applies retroactively to time already measured.
+                self.notice = self.renderer.label(
+                    f"时间倍速 {self.renderer.playback_speed:g}x，实时与回放共用。",
+                    f"Time scale {self.renderer.playback_speed:g}x for live runs and replay.")
+                return True
             return False
         if hasattr(self.renderer, 'map_notice'):
             self.renderer.map_notice = ''
         if action == "help":
-            self.notice = self.renderer.label("滚轮锚定缩放；左拖平移。全球浏览真实底图；场景返回虚拟地图；定位需地理参考。展开/恢复侧栏。列表滚轮；回放点击时间轴/事件定位。",
-                "Scroll to zoom at cursor; left drag to pan. Global opens the real map; Scene shows virtual coordinates. Locate needs a geographic reference. Expand/restore panels. Replay timeline/events seek.")
+            self.notice = self.renderer.label("滚轮锚定缩放；左拖平移。全球浏览真实底图；场景返回虚拟地图；定位需地理参考。展开/恢复侧栏。T 切换倍速；列表滚轮；回放点击时间轴/事件定位。",
+                "Scroll to zoom at cursor; left drag to pan. Global opens the real map; Scene shows virtual coordinates. Locate needs a geographic reference. Expand/restore panels. T cycles time scale; list scrolls; replay timeline/events seek.")
             return False
         if action == "workbench":
             try:
@@ -252,6 +268,7 @@ class App:
                       pygame.K_s: "sharing", pygame.K_c: "scene", pygame.K_l: "replay",
                       pygame.K_g: "world_view", pygame.K_v: "scene_view",
                       pygame.K_f: "focus_scene", pygame.K_m: "map_maximize",
+                      pygame.K_t: "speed",
                       pygame.K_LEFT: "previous", pygame.K_RIGHT: "next"}.get(event.key)
             if event.key == pygame.K_h:
                 action = "help"
@@ -277,7 +294,7 @@ class App:
             if timing_changed:
                 frame_dt = 0.0
                 clock.tick()  # Clear time spent handling a start/resume/reset transition.
-            self.simulation.advance(frame_dt * self.renderer.playback_speed if getattr(self.simulation, "is_replay", False) else frame_dt)
+            self.simulation.advance(self.scaled_frame(frame_dt))
             if self.simulation.finished and not getattr(self.simulation, "is_replay", False) and not self.finish_export_attempted:
                 self.finish_export_attempted = True
                 saved = self.save_if_needed()

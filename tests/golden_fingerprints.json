@@ -1,0 +1,115 @@
+{
+  "horizon_seconds": 60.0,
+  "scenes": {
+    "atlas_scene.json": {
+      "events": 118,
+      "finish_reason": "",
+      "sha256": "9421a8776690a4e7da44e1812f1c47be3e9fcdf5d94e00467ebe3e9980c9e982",
+      "sim_time": 44.933333333,
+      "snapshots": 47,
+      "state": "FINISHED",
+      "steps": 2696,
+      "units": 8
+    },
+    "basic_scene.json": {
+      "events": 48,
+      "finish_reason": "missions_complete",
+      "sha256": "8ce946446b9816ab227d74d8c244b5602884815ac1c5c1fbeeb08c6890e4b01d",
+      "sim_time": 18.016666667,
+      "snapshots": 1083,
+      "state": "FINISHED",
+      "steps": 1081,
+      "units": 4
+    },
+    "blocked_scene.json": {
+      "events": 38,
+      "finish_reason": "missions_complete",
+      "sha256": "33e9ba003c8e9e68642beb147e9e9fcede0a5696a33bfa2183f81fe4e5e3f39a",
+      "sim_time": 8.933333333,
+      "snapshots": 538,
+      "state": "FINISHED",
+      "steps": 536,
+      "units": 4
+    },
+    "default_scene.json": {
+      "events": 1,
+      "finish_reason": "",
+      "sha256": "cc6558713d0f54bdd7a55f643840050757c1e6c404365c5f45271acb94f5f1e8",
+      "sim_time": 60.016666667,
+      "snapshots": 63,
+      "state": "RUNNING",
+      "steps": 3601,
+      "units": 4
+    },
+    "detailed_scene.json": {
+      "events": 118,
+      "finish_reason": "",
+      "sha256": "9421a8776690a4e7da44e1812f1c47be3e9fcdf5d94e00467ebe3e9980c9e982",
+      "sim_time": 44.933333333,
+      "snapshots": 47,
+      "state": "FINISHED",
+      "steps": 2696,
+      "units": 8
+    },
+    "geographic_scene.json": {
+      "events": 5,
+      "finish_reason": "",
+      "sha256": "1bef5d578d3fa176c10eeec541a19448e98196440b1dec2c3a5d4ff88a9834e5",
+      "sim_time": 60.1,
+      "snapshots": 63,
+      "state": "RUNNING",
+      "steps": 601,
+      "units": 4
+    },
+    "interaction_scene.json": {
+      "events": 26,
+      "finish_reason": "score_limit",
+      "sha256": "8c4f4b6c3b38370f8db087a363962a5524a42e9c83d36bdde8e4b25eef81dc87",
+      "sim_time": 7.033333333,
+      "snapshots": 424,
+      "state": "FINISHED",
+      "steps": 422,
+      "units": 4
+    },
+    "mountain_scene.json": {
+      "events": 118,
+      "finish_reason": "",
+      "sha256": "d244ba5966b38654227f751e0e3911b33aa46ffcfba177a4e955bebf2b3749b9",
+      "sim_time": 44.933333333,
+      "snapshots": 47,
+      "state": "FINISHED",
+      "steps": 2696,
+      "units": 8
+    },
+    "navigation_scene.json": {
+      "events": 30,
+      "finish_reason": "",
+      "sha256": "49d92c0447f88788635a407e0d07159202c79f463bbda31575ac836eddbf25ad",
+      "sim_time": 17.3,
+      "snapshots": 20,
+      "state": "FINISHED",
+      "steps": 1038,
+      "units": 4
+    },
+    "obstacle_scene.json": {
+      "events": 64,
+      "finish_reason": "missions_complete",
+      "sha256": "1482aced241d10bc5ad83cabad39853a598549a044e516b535994fb77100fadf",
+      "sim_time": 17.25,
+      "snapshots": 1037,
+      "state": "FINISHED",
+      "steps": 1035,
+      "units": 4
+    },
+    "sharing_scene.json": {
+      "events": 26,
+      "finish_reason": "score_limit",
+      "sha256": "f4fdbb5077c3d27d7067e0b369e13732dd08d827672d0cea68d17dcad1bf5ef7",
+      "sim_time": 7.033333333,
+      "snapshots": 424,
+      "state": "FINISHED",
+      "steps": 422,
+      "units": 4
+    }
+  }
+}
