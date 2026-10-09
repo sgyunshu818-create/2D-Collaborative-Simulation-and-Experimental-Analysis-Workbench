@@ -14,17 +14,7 @@ from .recording import new_run_metadata, utc_timestamp
 # stepping for the fastest units.
 RECORD_STRIDE = 3
 
-# Remembered contact positions are rounded to centimetres. They are redrawn,
-# never re-checked, so the loss is invisible while an exact float repr spends 17
-# characters per coordinate. Unit positions keep full precision on purpose: the
-# scene audit feeds them back to the obstacle-clearance test, and a centimetre
-# of rounding can land a recorded point exactly on a boundary it was inside.
-RECORD_DECIMALS = 2
-
-
-def _recorded(value: float) -> float:
-    """Round one recorded measurement that no geometric check reads back."""
-    return round(value, RECORD_DECIMALS)
+# Recorded contact coordinates retain full precision for replay validation.
 
 
 class Simulation:
@@ -115,8 +105,8 @@ class Simulation:
                     sensor_range=unit.sensor_range,
                     contacts=[{
                         "target_id": contact.target_id,
-                        "x": _recorded(contact.position.x),
-                        "y": _recorded(contact.position.y),
+                        "x": contact.position.x,
+                        "y": contact.position.y,
                         "observed_step": contact.observed_step,
                         "source_id": contact.source_id,
                         "shared": contact.shared,
