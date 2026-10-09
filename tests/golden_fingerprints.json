@@ -14,7 +14,7 @@
     "basic_scene.json": {
       "events": 48,
       "finish_reason": "missions_complete",
-      "sha256": "62fdad252cbfe5b3f61fcf9177d5b2cf776210663470864334fe2187fd9a51de",
+      "sha256": "b4f1a3e0abc7c1040836e2e92698ca239d7ea2c305c62cda0b78aa68f27c8738",
       "sim_time": 18.016666667,
       "snapshots": 378,
       "state": "FINISHED",
@@ -24,7 +24,7 @@
     "blocked_scene.json": {
       "events": 38,
       "finish_reason": "missions_complete",
-      "sha256": "f21f924920183f2848951577dbc2153ac40cc4a37a3af479c001747ae75c1c43",
+      "sha256": "8ea3dde6c6c009ccc79dda475a94c51a0bc597565f764e993d8134b6a3679100",
       "sim_time": 8.933333333,
       "snapshots": 191,
       "state": "FINISHED",
@@ -44,7 +44,7 @@
     "detailed_scene.json": {
       "events": 253,
       "finish_reason": "missions_complete",
-      "sha256": "4755e21a746d0edd379dc85948600c0fc77ecf740201af2a39c76e7426ffb98c",
+      "sha256": "b096cb0069643ba104670cb1d60275385fb143008b2be3eb65ecb2a40a94b042",
       "sim_time": 44.933333333,
       "snapshots": 959,
       "state": "FINISHED",
@@ -64,7 +64,7 @@
     "interaction_scene.json": {
       "events": 26,
       "finish_reason": "score_limit",
-      "sha256": "ef98c12e502f66db12532e6d9a33ff233ac95a0819d3e0d4ec1c02a6aefefaf6",
+      "sha256": "e2ccfade749561772975a38e123eec92a34975d44de163fc3b345ad5d4f53e1f",
       "sim_time": 7.033333333,
       "snapshots": 147,
       "state": "FINISHED",
@@ -94,7 +94,7 @@
     "obstacle_scene.json": {
       "events": 64,
       "finish_reason": "missions_complete",
-      "sha256": "8892536d6c2d89058b4877aa78bbc510e687bf97a6497d456f93ae0727646f91",
+      "sha256": "f5829ffcf068f60e933c597ae343e18a30a556541c0dbe868e63eff23d2c263a",
       "sim_time": 17.25,
       "snapshots": 363,
       "state": "FINISHED",
@@ -104,7 +104,7 @@
     "sharing_scene.json": {
       "events": 26,
       "finish_reason": "score_limit",
-      "sha256": "e5e1dc512cd8d82e1d21da72173a8fb89b1cd5936d9df960198aa22b15bf639b",
+      "sha256": "e6b84087a7a27d1026ae20bf7ebcc189ab17be0baded6dafd83a0b379392e10d",
       "sim_time": 7.033333333,
       "snapshots": 147,
       "state": "FINISHED",

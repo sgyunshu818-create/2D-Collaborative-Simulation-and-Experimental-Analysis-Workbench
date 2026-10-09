@@ -154,6 +154,11 @@ def main(argv: list[str] | None = None) -> int:
         except SceneConfigError as error:
             lines.append(f"{path.name}: SCENE_ERROR {error}")
 
+    if lines:
+        for line in lines:
+            print(line, file=sys.stderr)
+        return 1
+
     if arguments.update:
         write_golden(measured)
         print(f"GOLDEN_UPDATED {GOLDEN_PATH} scenes={len(measured)}")
